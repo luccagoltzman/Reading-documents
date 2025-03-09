@@ -154,17 +154,38 @@ function preprocessImage(imageDataUrl) {
         let gray = new cv.Mat();
         cv.cvtColor(img, gray, cv.COLOR_RGBA2GRAY);
         
+        // Redimensiona a imagem para melhorar o processamento (opcional, dependendo do tamanho original)
+        const maxWidth = 1200; // Largura máxima para processamento
+        if (img.cols > maxWidth) {
+            const scaleFactor = maxWidth / img.cols;
+            const newSize = new cv.Size(maxWidth, Math.round(img.rows * scaleFactor));
+            cv.resize(gray, gray, newSize, 0, 0, cv.INTER_AREA);
+        }
+        
+        // Aplica desfoque gaussiano para reduzir ruído
+        let blurred = new cv.Mat();
+        const ksize = new cv.Size(5, 5);
+        cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
+        
         // Aplica filtro adaptativo para melhorar o contraste
         let binary = new cv.Mat();
-        cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+        cv.adaptiveThreshold(blurred, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
+        
+        // Operação morfológica para remover ruído
+        let kernel = cv.Mat.ones(1, 1, cv.CV_8U);
+        let cleaned = new cv.Mat();
+        cv.morphologyEx(binary, cleaned, cv.MORPH_OPEN, kernel);
         
         // Exibe a imagem processada no canvas
-        cv.imshow(canvasElement, binary);
+        cv.imshow(canvasElement, cleaned);
         
         // Libera memória
         img.delete();
         gray.delete();
+        blurred.delete();
         binary.delete();
+        kernel.delete();
+        cleaned.delete();
         
         // Retorna a imagem processada como URL de dados
         return canvasElement.toDataURL('image/png');
@@ -185,33 +206,74 @@ function parseDocumentInfo(text) {
         driverLicense: '',
         expirationDate: '',
         category: '',
+        nationality: '',
+        naturalness: '',
+        issueDate: '',
+        issuer: '',
+        fatherName: '',
+        motherName: '',
+        address: '',
         formattedText: text.replace(/\n/g, '<br>')
     };
+    
+    // Normaliza o texto para facilitar a busca
+    const normalizedText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     
     // Expressões regulares para extração de dados
     const cpfRegex = /(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/g;
     const rgRegex = /(\d{1,2}\.?\d{3}\.?\d{3}-?[0-9X])/g;
     const dateRegex = /(\d{2}\/\d{2}\/\d{4})/g;
-    const cnhRegex = /(registro nacional|habilitação|CNH|carteira nacional)/i;
-    const rgKeywordRegex = /(identidade|RG|Carteira de Identidade)/i;
+    const cnhRegex = /(registro nacional|habilitacao|CNH|carteira nacional)/i;
+    const rgKeywordRegex = /(identidade|RG|carteira de identidade)/i;
     
     // Verifica o tipo de documento
-    if (cnhRegex.test(text)) {
+    if (cnhRegex.test(normalizedText)) {
         info.type = 'CNH';
         
         // Para CNH, busca a categoria
-        const categoryMatch = text.match(/CAT\.?:?\s*([A-Z]+)/i);
+        const categoryMatch = normalizedText.match(/cat\.?:?\s*([A-Z]+)/i);
         if (categoryMatch) {
-            info.category = categoryMatch[1];
+            info.category = categoryMatch[1].toUpperCase();
         }
         
         // Para CNH, busca o número da habilitação
-        const licenseMatch = text.match(/registro:?\s*(\d+)/i);
+        const licenseMatch = normalizedText.match(/registro:?\s*(\d+)/i) || 
+                            normalizedText.match(/registro nacional:?\s*(\d+)/i) ||
+                            normalizedText.match(/nr registro:?\s*(\d+)/i);
         if (licenseMatch) {
             info.driverLicense = licenseMatch[1];
         }
-    } else if (rgKeywordRegex.test(text)) {
+        
+        // Busca validade da CNH
+        const validityMatch = normalizedText.match(/validade:?\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (validityMatch) {
+            info.expirationDate = validityMatch[1];
+        }
+        
+        // Busca data de primeira habilitação
+        const firstLicenseMatch = normalizedText.match(/primeira habilitacao:?\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (firstLicenseMatch) {
+            info.firstLicenseDate = firstLicenseMatch[1];
+        }
+        
+    } else if (rgKeywordRegex.test(normalizedText)) {
         info.type = 'RG';
+        
+        // Busca órgão emissor
+        const issuerMatch = normalizedText.match(/ssp\/?([A-Z]{2})/i) || 
+                           normalizedText.match(/([A-Z]{2,4}[-\/][A-Z]{2})/i) ||
+                           normalizedText.match(/orgao emissor:?\s*([A-Z\/\-]{2,7})/i);
+        if (issuerMatch) {
+            info.issuer = issuerMatch[1].toUpperCase();
+        }
+        
+        // Busca data de expedição
+        const issueDateMatch = normalizedText.match(/expedicao:?\s*(\d{2}\/\d{2}\/\d{4})/i) ||
+                               normalizedText.match(/emissao:?\s*(\d{2}\/\d{2}\/\d{4})/i) ||
+                               normalizedText.match(/data emissao:?\s*(\d{2}\/\d{2}\/\d{4})/i);
+        if (issueDateMatch) {
+            info.issueDate = issueDateMatch[1];
+        }
     }
     
     // Extrai CPF
@@ -226,22 +288,75 @@ function parseDocumentInfo(text) {
         info.rg = rgMatch[0];
     }
     
-    // Extrai datas
+    // Extrai datas (a primeira é geralmente data de nascimento)
     const dates = text.match(dateRegex);
     if (dates && dates.length > 0) {
-        info.birthDate = dates[0];
-        if (dates.length > 1) {
-            info.expirationDate = dates[1];
+        // Busca especificamente a data de nascimento
+        const birthDateMatch = normalizedText.match(/nascimento:?\s*(\d{2}\/\d{2}\/\d{4})/i) ||
+                               normalizedText.match(/data de nascimento:?\s*(\d{2}\/\d{2}\/\d{4})/i);
+        
+        if (birthDateMatch) {
+            info.birthDate = birthDateMatch[1];
+        } else {
+            info.birthDate = dates[0];
         }
     }
     
-    // Busca pelo nome (assume que está próximo da palavra "Nome" ou "Nome Completo")
-    const nameMatch = text.match(/nome:?\s*([A-ZÀ-ÚÇ\s]+)/i);
+    // Busca pelo nome
+    const nameMatch = normalizedText.match(/nome:?\s*([A-Za-z\s]+)/i) ||
+                      normalizedText.match(/nome completo:?\s*([A-Za-z\s]+)/i);
     if (nameMatch && nameMatch[1]) {
-        info.name = nameMatch[1].trim();
+        info.name = formatName(nameMatch[1]);
+    }
+    
+    // Busca pela nacionalidade
+    const nationalityMatch = normalizedText.match(/nacionalidade:?\s*([A-Za-z\s]+)/i);
+    if (nationalityMatch && nationalityMatch[1]) {
+        info.nationality = formatName(nationalityMatch[1]);
+    }
+    
+    // Busca pela naturalidade
+    const naturalnessMatch = normalizedText.match(/naturalidade:?\s*([A-Za-z\s\/\-]+)/i);
+    if (naturalnessMatch && naturalnessMatch[1]) {
+        info.naturalness = formatName(naturalnessMatch[1]);
+    }
+    
+    // Busca pela filiação (pai)
+    const fatherMatch = normalizedText.match(/pai:?\s*([A-Za-z\s]+)/i) ||
+                        normalizedText.match(/filiacao pai:?\s*([A-Za-z\s]+)/i);
+    if (fatherMatch && fatherMatch[1]) {
+        info.fatherName = formatName(fatherMatch[1]);
+    }
+    
+    // Busca pela filiação (mãe)
+    const motherMatch = normalizedText.match(/mae:?\s*([A-Za-z\s]+)/i) ||
+                        normalizedText.match(/filiacao mae:?\s*([A-Za-z\s]+)/i);
+    if (motherMatch && motherMatch[1]) {
+        info.motherName = formatName(motherMatch[1]);
+    }
+    
+    // Busca pelo endereço
+    const addressMatch = normalizedText.match(/endereco:?\s*([A-Za-z0-9\s,\.-]+)/i);
+    if (addressMatch && addressMatch[1]) {
+        info.address = formatName(addressMatch[1]);
     }
     
     return info;
+}
+
+// Função auxiliar para formatar nomes (primeira letra maiúscula de cada palavra)
+function formatName(name) {
+    if (!name) return '';
+    return name.trim()
+        .split(' ')
+        .map(word => {
+            if (word.length > 2) {
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            } else {
+                return word.toLowerCase();
+            }
+        })
+        .join(' ');
 }
 
 // Função para exibir os resultados extraídos
@@ -249,44 +364,106 @@ function displayResults(info) {
     let html = '';
     
     if (info.type !== 'Desconhecido') {
-        html += `<p><strong>Tipo de Documento:</strong> ${info.type}</p>`;
+        html += `<p class="result-item" style="--i:0"><strong>Tipo de Documento:</strong> ${info.type}</p>`;
     }
     
     if (info.name) {
-        html += `<p><strong>Nome:</strong> ${info.name}</p>`;
+        html += `<p class="result-item" style="--i:1"><strong>Nome:</strong> ${info.name}</p>`;
     }
     
     if (info.cpf) {
-        html += `<p><strong>CPF:</strong> ${info.cpf}</p>`;
+        html += `<p class="result-item" style="--i:2"><strong>CPF:</strong> ${info.cpf}</p>`;
     }
     
     if (info.rg) {
-        html += `<p><strong>RG:</strong> ${info.rg}</p>`;
+        html += `<p class="result-item" style="--i:3"><strong>RG:</strong> ${info.rg}</p>`;
     }
     
     if (info.birthDate) {
-        html += `<p><strong>Data de Nascimento:</strong> ${info.birthDate}</p>`;
+        html += `<p class="result-item" style="--i:4"><strong>Data de Nascimento:</strong> ${info.birthDate}</p>`;
     }
     
+    if (info.nationality) {
+        html += `<p class="result-item" style="--i:5"><strong>Nacionalidade:</strong> ${info.nationality}</p>`;
+    }
+    
+    if (info.naturalness) {
+        html += `<p class="result-item" style="--i:6"><strong>Naturalidade:</strong> ${info.naturalness}</p>`;
+    }
+    
+    if (info.fatherName) {
+        html += `<p class="result-item" style="--i:7"><strong>Nome do Pai:</strong> ${info.fatherName}</p>`;
+    }
+    
+    if (info.motherName) {
+        html += `<p class="result-item" style="--i:8"><strong>Nome da Mãe:</strong> ${info.motherName}</p>`;
+    }
+    
+    if (info.address) {
+        html += `<p class="result-item" style="--i:9"><strong>Endereço:</strong> ${info.address}</p>`;
+    }
+    
+    // Campos específicos do RG
+    if (info.type === 'RG') {
+        if (info.issuer) {
+            html += `<p class="result-item" style="--i:10"><strong>Órgão Emissor:</strong> ${info.issuer}</p>`;
+        }
+        
+        if (info.issueDate) {
+            html += `<p class="result-item" style="--i:11"><strong>Data de Emissão:</strong> ${info.issueDate}</p>`;
+        }
+    }
+    
+    // Campos específicos da CNH
     if (info.type === 'CNH') {
         if (info.driverLicense) {
-            html += `<p><strong>Registro da CNH:</strong> ${info.driverLicense}</p>`;
+            html += `<p class="result-item" style="--i:10"><strong>Registro da CNH:</strong> ${info.driverLicense}</p>`;
         }
+        
         if (info.category) {
-            html += `<p><strong>Categoria:</strong> ${info.category}</p>`;
+            html += `<p class="result-item" style="--i:11"><strong>Categoria:</strong> ${info.category}</p>`;
         }
+        
         if (info.expirationDate) {
-            html += `<p><strong>Validade:</strong> ${info.expirationDate}</p>`;
+            html += `<p class="result-item" style="--i:12"><strong>Validade:</strong> ${info.expirationDate}</p>`;
+        }
+        
+        if (info.firstLicenseDate) {
+            html += `<p class="result-item" style="--i:13"><strong>Primeira Habilitação:</strong> ${info.firstLicenseDate}</p>`;
         }
     }
     
     if (html === '') {
-        html = `<p>Não foi possível identificar informações do documento. Tente novamente com melhor iluminação.</p>
-                <p><strong>Texto extraído:</strong></p>
+        html = `<p class="no-results">Não foi possível identificar informações do documento. Tente novamente com melhor iluminação.</p>
+                <p class="raw-text-label"><strong>Texto extraído:</strong></p>
                 <div class="extracted-text">${info.formattedText}</div>`;
+    } else {
+        // Adiciona o texto bruto extraído ao final para debug e verificação
+        html += `<p class="toggle-raw-text result-item" style="--i:15"><a href="#" onclick="toggleRawText(event)"><i class="fas fa-code"></i> Mostrar/Ocultar Texto Extraído</a></p>
+                <div class="extracted-text" style="display: none;">${info.formattedText}</div>`;
     }
     
+    // Define o HTML com efeito de fade in
+    resultElement.style.opacity = '0';
     resultElement.innerHTML = html;
+    
+    // Anima a entrada dos resultados
+    setTimeout(() => {
+        resultElement.style.opacity = '1';
+        // Adiciona classe para ativar as animações
+        document.querySelectorAll('.result-item').forEach(item => {
+            item.classList.add('animate-in');
+        });
+    }, 50);
+}
+
+// Função para alternar a exibição do texto bruto extraído
+function toggleRawText(event) {
+    event.preventDefault();
+    const extractedTextElement = document.querySelector('.extracted-text');
+    if (extractedTextElement) {
+        extractedTextElement.style.display = extractedTextElement.style.display === 'none' ? 'block' : 'none';
+    }
 }
 
 // Função chamada quando OpenCV.js é carregado

@@ -5,32 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leitor de Documentos</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <h1>Leitor de Documentos</h1>
-        <p>Aponte a câmera para o seu RG ou CNH para leitura automática</p>
+        <h1>Leitor de Documentos <span class="tech-badge">AI</span></h1>
+        <p>Aponte a câmera para o seu RG ou CNH para leitura automática e extração de dados</p>
         
         <div class="camera-container">
             <video id="camera" autoplay playsinline></video>
             <div class="document-overlay">
                 <div class="document-frame"></div>
             </div>
+            <div class="camera-corner top-left"></div>
+            <div class="camera-corner top-right"></div>
+            <div class="camera-corner bottom-left"></div>
+            <div class="camera-corner bottom-right"></div>
             <canvas id="canvas" style="display: none;"></canvas>
         </div>
         
         <div class="button-group">
-            <button id="startCamera" class="primary-button">Iniciar Câmera</button>
-            <button id="stopCamera" class="primary-button" disabled>Parar Câmera</button>
-            <button id="captureImage" class="primary-button" disabled>Capturar Imagem</button>
+            <button id="startCamera" class="primary-button"><i class="fas fa-camera"></i> Iniciar Câmera</button>
+            <button id="stopCamera" class="primary-button" disabled><i class="fas fa-stop"></i> Parar Câmera</button>
+            <button id="captureImage" class="primary-button" disabled><i class="fas fa-image"></i> Capturar Imagem</button>
         </div>
         
         <div class="result-container">
             <h2>Dados Extraídos</h2>
             <div id="loading" class="loading" style="display: none;">Processando documento...</div>
-            <div id="result" class="result-data"></div>
+            <div id="result" class="result-data">
+                <div class="placeholder-text">Os dados do documento aparecerão aqui após a captura</div>
+            </div>
         </div>
     </div>
+    
+    <footer class="app-footer">
+        <p>Processamento 100% local | Segurança e privacidade garantidas</p>
+    </footer>
     
     <!-- Importação das bibliotecas necessárias -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
