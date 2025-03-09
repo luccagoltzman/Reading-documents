@@ -50,7 +50,3 @@ Um aplicativo web que permite a leitura e extração de informações de documen
 - Navegador com suporte a JavaScript ES6+
 - Acesso à câmera do dispositivo
 - Conexão com a internet (apenas para o carregamento inicial das bibliotecas)
-
-## Licença
-
-Este projeto é distribuído sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
