@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor de Documentos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Leitor de Documentos</h1>
+        <p>Aponte a câmera para o seu RG ou CNH para leitura automática</p>
+        
+        <div class="camera-container">
+            <video id="camera" autoplay playsinline></video>
+            <div class="document-overlay">
+                <div class="document-frame"></div>
+            </div>
+            <canvas id="canvas" style="display: none;"></canvas>
+        </div>
+        
+        <div class="button-group">
+            <button id="startCamera" class="primary-button">Iniciar Câmera</button>
+            <button id="stopCamera" class="primary-button" disabled>Parar Câmera</button>
+            <button id="captureImage" class="primary-button" disabled>Capturar Imagem</button>
+        </div>
+        
+        <div class="result-container">
+            <h2>Dados Extraídos</h2>
+            <div id="loading" class="loading" style="display: none;">Processando documento...</div>
+            <div id="result" class="result-data"></div>
+        </div>
+    </div>
+    
+    <!-- Importação das bibliotecas necessárias -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opencv.js@1.2.1/opencv.min.js" 
+            onload="onOpenCvReady();" 
+            onerror="onOpenCvError();"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
