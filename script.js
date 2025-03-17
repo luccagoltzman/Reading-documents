@@ -120,6 +120,16 @@ function stopCamera() {
         if (cameraElement) {
             cameraElement.srcObject = null;
         }
+        
+        // Atualiza o estado dos botões
+        if (startCameraButton) startCameraButton.disabled = false;
+        if (captureImageButton) captureImageButton.disabled = true;
+        if (switchCameraButton) switchCameraButton.disabled = true;
+        
+        // Indica que a câmera foi interrompida
+        stream = null;
+        
+        showMessage('Câmera interrompida', 'info');
     }
 }
 
@@ -1369,64 +1379,74 @@ function registerEventListeners() {
 
 // Função para capturar imagem e processar o documento
 async function captureImage() {
-    if (!cameraElement || !cameraElement.srcObject) {
-        showMessage('Câmera não iniciada. Por favor, clique em "Iniciar Câmera" primeiro.', 'error');
-        return;
-    }
-    
-    // Adicionar efeito de flash à câmera
-    const flashOverlay = document.createElement('div');
-    flashOverlay.style.position = 'absolute';
-    flashOverlay.style.top = '0';
-    flashOverlay.style.left = '0';
-    flashOverlay.style.width = '100%';
-    flashOverlay.style.height = '100%';
-    flashOverlay.style.backgroundColor = 'white';
-    flashOverlay.style.opacity = '0';
-    flashOverlay.style.transition = 'opacity 0.1s ease-in-out';
-    flashOverlay.style.zIndex = '5';
-    flashOverlay.style.pointerEvents = 'none';
-    
-    videoContainer.appendChild(flashOverlay);
-    
-    // Animar o flash
-    setTimeout(() => {
-        flashOverlay.style.opacity = '0.8';
-        setTimeout(() => {
-            flashOverlay.style.opacity = '0';
-            setTimeout(() => {
-                videoContainer.removeChild(flashOverlay);
-            }, 100);
-        }, 100);
-    }, 0);
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = cameraElement.videoWidth;
-    canvas.height = cameraElement.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(cameraElement, 0, 0, canvas.width, canvas.height);
-    
-    // Verificar qualidade da imagem antes de processar
-    const imageQuality = checkImageQuality(canvas);
-    
-    if (imageQuality.hasIssues) {
-        // Mostrar alerta de qualidade com opção de continuar
-        const shouldContinue = await showQualityWarning(imageQuality);
-        if (!shouldContinue) {
-            return; // Usuário optou por tentar novamente
+    try {
+        // Se não houver stream de câmera ativo, mostrar mensagem
+        if (!stream) {
+            showMessage('Inicie a câmera antes de capturar uma imagem', 'warning');
+            return;
         }
+
+        // Criar um canvas para capturar a imagem do vídeo
+        const video = cameraElement;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Obter dados da imagem
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Exibir a imagem capturada
+        if (capturedImageElement) {
+            capturedImageElement.src = imageDataUrl;
+            capturedImageElement.style.display = 'block';
+        }
+        
+        // Alternar exibição dos containers
+        if (videoContainer) videoContainer.style.display = 'none';
+        if (capturedContainer) capturedContainer.style.display = 'block';
+        
+        // Adicionar feedback sonoro de captura
+        const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
+        captureSound.play();
+        
+        // Verificar a qualidade da imagem
+        if (checkImageQuality) {
+            // Verifica a qualidade da imagem antes de processar
+            const qualityCheck = checkImageQuality(canvas);
+            
+            if (qualityCheck.hasIssues) {
+                const shouldContinue = await showQualityWarning(qualityCheck);
+                if (!shouldContinue) {
+                    // O usuário optou por tentar novamente
+                    if (videoContainer) videoContainer.style.display = 'block';
+                    if (capturedContainer) capturedContainer.style.display = 'none';
+                    return;
+                }
+            }
+        }
+        
+        // Processar a imagem capturada
+        showLoadingOverlay('Analisando documento...');
+        try {
+            const documentData = await processDocumentData(imageDataUrl);
+            resultTextarea.value = documentData;
+        } catch (error) {
+            console.error('Erro ao processar documento:', error);
+            showMessage('Erro ao processar documento. Por favor, tente novamente.', 'error');
+        } finally {
+            hideLoadingOverlay();
+        }
+        
+        // Interromper a câmera após processamento
+        stopCamera();
+        
+    } catch (error) {
+        console.error('Erro ao capturar imagem:', error);
+        showMessage('Erro ao capturar imagem', 'error');
     }
-    
-    const imageDataUrl = canvas.toDataURL('image/jpeg');
-    capturedImageElement.src = imageDataUrl;
-    capturedImageElement.style.display = 'block';
-    
-    videoContainer.style.display = 'none';
-    capturedContainer.style.display = 'block';
-    
-    // Adicionar feedback sonoro de captura
-    const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
-    captureSound.play();
 }
 
 // Função para mostrar mensagem ao usuário com animação melhorada

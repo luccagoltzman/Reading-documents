@@ -117,16 +117,16 @@
     <!-- Modal de configuração da API -->
     <div id="apiConfigModal" class="modal">
         <div class="modal-content">
-            <span id="closeModal" class="close-modal">&times;</span>
-            <h3><i class="fas fa-key"></i> Configuração da API OpenAI</h3>
-            <p>Configure sua chave API da OpenAI para ativar os recursos de inteligência artificial para extração avançada de dados de documentos.</p>
+            <button id="closeModal" class="close-modal"><i class="fas fa-times"></i></button>
+            <h3><i class="fas fa-key"></i> Configuração da API</h3>
+            <p>Configure sua chave API da OpenAI para ativar os recursos de IA para extração avançada de dados.</p>
             
             <form id="apiForm" class="api-form">
                 <div class="form-group">
                     <label for="apiKeyInput">Chave API da OpenAI</label>
-                    <div class="api-key-input">
+                    <div class="api-key-container">
                         <input type="password" id="apiKeyInput" placeholder="sk-..." required>
-                        <button type="button" id="toggleKeyVisibility" class="toggle-btn">
+                        <button type="button" id="toggleKeyVisibility" class="toggle-visibility">
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
@@ -140,27 +140,26 @@
                     </select>
                 </div>
                 
-                <div class="storage-options">
-                    <p>Onde armazenar sua chave API:</p>
-                    <div class="radio-group">
+                <div class="form-group">
+                    <label>Onde armazenar sua chave API:</label>
+                    <div class="storage-options">
                         <label>
                             <input type="radio" name="storage" value="local" id="storeLocal" checked>
-                            Local Storage (Permanece após fechar o navegador)
+                            Local Storage
                         </label>
                         <label>
                             <input type="radio" name="storage" value="session" id="storeSession">
-                            Session Storage (Apagado ao fechar o navegador)
+                            Session Storage
                         </label>
                     </div>
-                </div>
-                
-                <div class="security-note">
-                    <p><i class="fas fa-shield-alt"></i> Sua chave API é armazenada apenas em seu navegador e nunca é enviada para nossos servidores.</p>
+                    <small class="security-note">
+                        <i class="fas fa-shield-alt"></i> Sua chave é armazenada apenas em seu navegador.
+                    </small>
                 </div>
                 
                 <div class="form-actions">
-                    <button type="button" class="secondary-button" id="closeModal2">Cancelar</button>
-                    <button type="submit" class="primary-btn">Salvar Configuração</button>
+                    <button type="button" class="btn secondary-btn" id="closeModal2">Cancelar</button>
+                    <button type="submit" class="btn primary-btn">Salvar</button>
                 </div>
             </form>
         </div>
