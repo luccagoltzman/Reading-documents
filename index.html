@@ -5,75 +5,171 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leitor de Documentos</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Roboto+Mono&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+    <script src="https://docs.opencv.org/4.5.5/opencv.js" async></script>
 </head>
 <body>
     <div class="container">
-        <h1>Leitor de Documentos <span class="tech-badge">AI</span></h1>
-        <p>Aponte a câmera para o seu RG ou CNH para leitura automática e extração de dados</p>
+        <header class="fade-in-up">
+            <h1>Leitor de <span>Documentos</span></h1>
+            <p>Capture documentos e extraia informações com precisão e inteligência artificial</p>
+        </header>
         
-        <div class="tips-container">
-            <p class="tips-toggle"><i class="fas fa-lightbulb"></i> Dicas para melhor leitura</p>
+        <!-- Configuração da OpenAI API -->
+        <div class="ai-config fade-in-up-delay-1">
+            <button id="apiConfigButton" class="ai-config-button">
+                <i class="fas fa-cog"></i> Configurar API OpenAI
+            </button>
+            <div class="ai-status">
+                <div id="apiStatusIndicator" class="ai-status-indicator"></div>
+                <span id="apiStatus">Não configurado</span>
+            </div>
+        </div>
+
+        <!-- Botão de alternância para usar IA -->
+        <div class="ai-toggle-container fade-in-up-delay-1">
+            <label class="ai-switch">
+                <input type="checkbox" id="aiToggle">
+                <span class="ai-slider">
+                    <span class="ai-label">Usar Inteligência Artificial</span>
+                </span>
+            </label>
+            <div class="ai-tooltip">
+                <i class="fas fa-info-circle"></i>
+                <span class="ai-tooltip-text">Quando ativado, o sistema usará IA para analisar as imagens capturadas e extrair dados mais precisos dos documentos. Requer chave API válida da OpenAI.</span>
+            </div>
+        </div>
+        
+        <div class="camera-container fade-in-up-delay-2">
+            <div id="video-container">
+                <video id="camera" autoplay></video>
+                <div class="capture-overlay">
+                    <div class="capture-frame"></div>
+                </div>
+                <div class="capture-controls">
+                    <button id="startCameraBtn" class="btn primary-btn">
+                        <i class="fas fa-video"></i> Iniciar Câmera
+                    </button>
+                    <button id="captureBtn" class="btn success-btn" disabled>
+                        <i class="fas fa-camera"></i> Capturar
+                    </button>
+                    <button id="switchCameraBtn" class="btn secondary-btn" disabled>
+                        <i class="fas fa-sync-alt"></i> Trocar Câmera
+                    </button>
+                </div>
+            </div>
+            <div id="captured-container" style="display: none;">
+                <img id="captured-image" alt="Imagem capturada" />
+                <div class="capture-controls">
+                    <button id="recaptureBtn" class="btn primary-btn">
+                        <i class="fas fa-redo"></i> Capturar Novamente
+                    </button>
+                    <button id="processBtn" class="btn success-btn">
+                        <i class="fas fa-magic"></i> Processar Imagem
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tips-section fade-in-up-delay-2">
+            <div class="tips-header">
+                <h3><i class="fas fa-lightbulb"></i> Dicas para Captura <span class="tips-toggle"><i class="fas fa-chevron-down"></i></span></h3>
+            </div>
             <ul class="capture-tips">
-                <li><i class="fas fa-check"></i> Posicione o documento <strong>completamente</strong> dentro da moldura</li>
-                <li><i class="fas fa-check"></i> Garanta boa iluminação, evitando sombras e reflexos</li>
-                <li><i class="fas fa-check"></i> Mantenha a câmera estável ao capturar a imagem</li>
-                <li><i class="fas fa-check"></i> Certifique-se que todo o texto está visível e legível</li>
-                <li><i class="fas fa-check"></i> Prefira fundos lisos e com contraste com o documento</li>
+                <li><i class="fas fa-check-circle"></i> Coloque o documento sobre uma superfície plana</li>
+                <li><i class="fas fa-check-circle"></i> Certifique-se de que há boa iluminação</li>
+                <li><i class="fas fa-check-circle"></i> Evite sombras sobre o documento</li>
+                <li><i class="fas fa-check-circle"></i> Enquadre todo o documento dentro das bordas</li>
+                <li><i class="fas fa-check-circle"></i> Mantenha a câmera estável ao capturar</li>
             </ul>
         </div>
         
-        <div class="camera-container">
-            <video id="camera" autoplay playsinline></video>
-            <div class="document-overlay">
-                <div class="document-frame"></div>
-                <div class="position-helper">Alinhe o documento dentro da moldura</div>
+        <div class="result-container fade-in-up-delay-3">
+            <h2>Resultado:</h2>
+            <div class="result-controls">
+                <button id="copyBtn" title="Copiar texto"><i class="fas fa-copy"></i></button>
+                <button id="downloadBtn" title="Baixar como TXT"><i class="fas fa-download"></i></button>
             </div>
-            <div class="camera-corner top-left"></div>
-            <div class="camera-corner top-right"></div>
-            <div class="camera-corner bottom-left"></div>
-            <div class="camera-corner bottom-right"></div>
-            <canvas id="canvas" style="display: none;"></canvas>
+            <textarea id="resultText" readonly></textarea>
         </div>
-        
-        <div class="button-group">
-            <button id="startCamera" class="primary-button"><i class="fas fa-camera"></i> Iniciar Câmera</button>
-            <button id="stopCamera" class="primary-button" disabled><i class="fas fa-stop"></i> Parar Câmera</button>
-            <button id="captureImage" class="primary-button" disabled><i class="fas fa-image"></i> Capturar Imagem</button>
-        </div>
-        
-        <div class="result-container">
-            <h2>Dados Extraídos</h2>
-            <div id="loading" class="loading" style="display: none;">Processando documento...</div>
-            <div id="result" class="result-data">
-                <div class="placeholder-text">Os dados do documento aparecerão aqui após a captura</div>
-            </div>
-        </div>
-        
-        <div class="document-samples">
-            <p>Exemplos de documentos compatíveis:</p>
-            <div class="sample-images">
-                <div class="sample-image">
-                    <div class="sample-label">RG</div>
-                    <img src="https://dokutech.com.br/wp-content/uploads/2022/05/Novo-RG-2023.jpg" alt="Exemplo de RG">
-                </div>
-                <div class="sample-image">
-                    <div class="sample-label">CNH</div>
-                    <img src="https://vistovirtual.com.br/blog/wp-content/uploads/2022/06/img-post-nova-cnh-2022-1024x509.jpg" alt="Exemplo de CNH">
-                </div>
+    </div>
+    
+    <!-- Overlay de carregamento -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading-text">Processando...</p>
+    </div>
+
+    <!-- Alerta de qualidade da imagem -->
+    <div id="qualityAlert" class="quality-alert">
+        <div class="quality-alert-content">
+            <h3 id="qualityAlertTitle"></h3>
+            <p id="qualityAlertMessage"></p>
+            <div class="quality-alert-buttons">
+                <button id="continueAnyway" class="alert-button continue">Continuar Mesmo Assim</button>
+                <button id="tryAgain" class="alert-button tryagain">Tentar Novamente</button>
             </div>
         </div>
     </div>
     
-    <footer class="app-footer">
-        <p>Processamento 100% local | Segurança e privacidade garantidas</p>
+    <!-- Modal de configuração da API -->
+    <div id="apiConfigModal" class="modal">
+        <div class="modal-content">
+            <span id="closeModal" class="close-modal">&times;</span>
+            <h3><i class="fas fa-key"></i> Configuração da API OpenAI</h3>
+            <p>Configure sua chave API da OpenAI para ativar os recursos de inteligência artificial para extração avançada de dados de documentos.</p>
+            
+            <form id="apiForm" class="api-form">
+                <div class="form-group">
+                    <label for="apiKeyInput">Chave API da OpenAI</label>
+                    <div class="api-key-input">
+                        <input type="password" id="apiKeyInput" placeholder="sk-..." required>
+                        <button type="button" id="toggleKeyVisibility" class="toggle-btn">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modelSelect">Modelo</label>
+                    <select id="modelSelect">
+                        <option value="gpt-4-vision-preview">GPT-4 Vision (Recomendado)</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                    </select>
+                </div>
+                
+                <div class="storage-options">
+                    <p>Onde armazenar sua chave API:</p>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="storage" value="local" id="storeLocal" checked>
+                            Local Storage (Permanece após fechar o navegador)
+                        </label>
+                        <label>
+                            <input type="radio" name="storage" value="session" id="storeSession">
+                            Session Storage (Apagado ao fechar o navegador)
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="security-note">
+                    <p><i class="fas fa-shield-alt"></i> Sua chave API é armazenada apenas em seu navegador e nunca é enviada para nossos servidores.</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="secondary-button" id="closeModal2">Cancelar</button>
+                    <button type="submit" class="primary-btn">Salvar Configuração</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <footer>
+        <p>&copy; 2023 Leitor de Documentos - Extração de dados com IA</p>
     </footer>
     
-    <!-- Importação das bibliotecas necessárias -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/opencv.js@1.2.1/opencv.min.js" 
-            onload="onOpenCvReady();" 
-            onerror="onOpenCvError();"></script>
     <script src="script.js"></script>
 </body>
 </html> 

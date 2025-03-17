@@ -9,8 +9,54 @@ const loadingElement = document.getElementById('loading');
 const tipsToggleElement = document.querySelector('.tips-toggle');
 const captureListElement = document.querySelector('.capture-tips');
 
-// Inicialização da página
-document.addEventListener('DOMContentLoaded', () => {
+// Configuração e integração da OpenAI API
+let openaiApiKey = '';
+let openaiModel = 'gpt-4-vision-preview';
+let useAI = false;
+const storageKeyName = 'openai_api_config';
+
+// Elementos DOM para configuração da OpenAI
+const apiConfigButton = document.getElementById('apiConfigButton');
+const apiConfigModal = document.getElementById('apiConfigModal');
+const closeModalButton = document.getElementById('closeModal');
+const apiForm = document.getElementById('apiForm');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const toggleKeyVisibility = document.getElementById('toggleKeyVisibility');
+const apiStatusIndicator = document.getElementById('apiStatusIndicator');
+const aiToggle = document.getElementById('aiToggle');
+
+// Referências aos elementos da interface
+const videoContainer = document.getElementById('video-container');
+const capturedContainer = document.getElementById('captured-container');
+const capturedImageElement = document.getElementById('captured-image');
+const resultTextarea = document.getElementById('resultText');
+
+// Função para verificar se estamos no GitHub Pages
+function isGitHubPages() {
+    return window.location.hostname.includes('github.io');
+}
+
+// Inicialização de document.onload
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar a UI com animações
+    initializeUI();
+    
+    // Inicializar elementos da UI
+    initializeCamera();
+    registerEventListeners();
+    
+    // Inicializar configuração da API
+    initializeApiConfig();
+    
+    // Verificar se estamos no GitHub Pages e mostrar mensagem apropriada
+    if (isGitHubPages()) {
+        console.log('Executando em GitHub Pages - CORS pode ser um problema para chamadas diretas à API OpenAI');
+        const securityNote = document.querySelector('.security-note p');
+        if (securityNote) {
+            securityNote.innerHTML += '<br><strong>Nota:</strong> Em GitHub Pages, algumas restrições de segurança podem afetar as chamadas à API. Se encontrar problemas, considere usar nossa versão hospedada.';
+        }
+    }
+
     // Configura o toggle para as dicas de captura
     if (tipsToggleElement && captureListElement) {
         // Por padrão, as dicas ficam fechadas em dispositivos móveis
@@ -114,9 +160,9 @@ captureImageButton.addEventListener('click', async () => {
     
     // Verifica a qualidade da imagem antes de processar
     if (opencv_ready) {
-        const qualityCheck = checkImageQuality(imageDataUrl);
+        const qualityCheck = checkImageQuality(canvasElement);
         
-        if (qualityCheck.issues) {
+        if (qualityCheck.hasIssues) {
             const shouldContinue = await showQualityWarning(qualityCheck);
             if (!shouldContinue) {
                 return; // Usuário optou por não continuar com a imagem de baixa qualidade
@@ -128,121 +174,157 @@ captureImageButton.addEventListener('click', async () => {
     processImage(imageDataUrl);
 });
 
-// Função para verificar a qualidade da imagem antes do processamento
-function checkImageQuality(imageDataUrl) {
+// Função para verificar a qualidade da imagem
+function checkImageQuality(canvas) {
+    const result = {
+        hasIssues: false,
+        issues: [],
+        details: {}
+    };
+    
+    // Verificar dimensões mínimas
+    if (canvas.width < 640 || canvas.height < 480) {
+        result.hasIssues = true;
+        result.issues.push('size');
+        result.details.size = `Imagem muito pequena (${canvas.width}x${canvas.height}). Recomendado pelo menos 640x480.`;
+    }
+    
     try {
-        // Resultado da verificação
-        const result = {
-            issues: false,
-            isDark: false,
-            isBlurry: false,
-            isSmall: false,
-            message: ''
-        };
+        // Verificar escuridão da imagem (média de valores de pixel)
+        const ctx = canvas.getContext('2d');
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
         
-        // Carrega a imagem para o OpenCV
-        let img = cv.imread(canvasElement);
+        let sum = 0;
+        let pixelCount = 0;
         
-        // Verifica o tamanho
-        if (img.rows < 300 || img.cols < 300) {
-            result.issues = true;
-            result.isSmall = true;
-            result.message += 'Imagem muito pequena. ';
+        // Calcular a média de brilho (usando apenas uma amostra de pixels para performance)
+        const sampleStep = 10; // Verificar a cada 10 pixels para performance
+        for (let i = 0; i < data.length; i += sampleStep * 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // Fórmula ponderada para brilho percebido
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+            sum += brightness;
+            pixelCount++;
         }
         
-        // Converte para escala de cinza para análises
-        let gray = new cv.Mat();
-        cv.cvtColor(img, gray, cv.COLOR_RGBA2GRAY);
+        const averageBrightness = sum / pixelCount;
+        result.details.brightness = averageBrightness;
         
-        // Verifica se está escura - calcula a média de brilho
-        let meanValue = new cv.Mat();
-        cv.mean(gray); // Retorna um array com a média de intensidade
-        const brightness = cv.mean(gray)[0]; // Pega o valor do primeiro canal (único em grayscale)
-        
-        if (brightness < 80) { // Limiar para considerar imagem escura
-            result.issues = true;
-            result.isDark = true;
-            result.message += 'Imagem muito escura. ';
+        // Se a imagem for muito escura
+        if (averageBrightness < 50) {
+            result.hasIssues = true;
+            result.issues.push('dark');
+            result.details.darkMessage = `Imagem muito escura (brilho: ${Math.round(averageBrightness)}). Tente melhorar a iluminação.`;
         }
         
-        // Verifica desfoque - usando variação Laplaciana
-        let laplacian = new cv.Mat();
-        cv.Laplacian(gray, laplacian, cv.CV_64F);
+        // Verificar desfoque/falta de nitidez usando detecção de bordas
+        // Uma imagem borrada terá poucas transições fortes entre pixels
         
-        let stdDev = new cv.Mat();
-        let mean = new cv.Mat();
-        cv.meanStdDev(laplacian, mean, stdDev);
+        // Não podemos usar a detecção de bordas completa sem o OpenCV carregado
+        // Vamos fazer uma verificação simplificada de contraste local
+        let edgeStrength = 0;
+        let edgeSamples = 0;
         
-        const stdDevValue = stdDev.data64F[0];
-        if (stdDevValue < 5) { // Limiar para considerar imagem desfocada
-            result.issues = true;
-            result.isBlurry = true;
-            result.message += 'Imagem desfocada. ';
+        for (let y = 5; y < canvas.height - 5; y += 10) {
+            for (let x = 5; x < canvas.width - 5; x += 10) {
+                const idx = (y * canvas.width + x) * 4;
+                const idxRight = (y * canvas.width + (x + 5)) * 4;
+                const idxBottom = ((y + 5) * canvas.width + x) * 4;
+                
+                // Calcular diferenças horizontais e verticais
+                const diffH = Math.abs(data[idx] - data[idxRight]) + 
+                            Math.abs(data[idx + 1] - data[idxRight + 1]) + 
+                            Math.abs(data[idx + 2] - data[idxRight + 2]);
+                            
+                const diffV = Math.abs(data[idx] - data[idxBottom]) + 
+                            Math.abs(data[idx + 1] - data[idxBottom + 1]) + 
+                            Math.abs(data[idx + 2] - data[idxBottom + 2]);
+                
+                edgeStrength += (diffH + diffV) / 6; // Média dos 6 valores de diferença
+                edgeSamples++;
+            }
         }
         
-        // Libera a memória
-        img.delete();
-        gray.delete();
-        laplacian.delete();
-        stdDev.delete();
-        mean.delete();
+        const avgEdgeStrength = edgeStrength / edgeSamples;
+        result.details.edgeStrength = avgEdgeStrength;
         
-        if (result.issues) {
-            result.message += 'Tente novamente com melhor iluminação e mantenha a câmera estável.';
+        // Se o valor médio de borda for muito baixo, a imagem provavelmente está borrada
+        if (avgEdgeStrength < 15) {
+            result.hasIssues = true;
+            result.issues.push('blurry');
+            result.details.blurryMessage = `Imagem parece desfocada (nitidez: ${Math.round(avgEdgeStrength)}). Tente manter a câmera estável.`;
         }
-        
-        return result;
         
     } catch (error) {
         console.error('Erro ao verificar qualidade da imagem:', error);
-        return { issues: false }; // Em caso de erro, continua com o processamento
+    }
+    
+    return result;
+}
+
+// Função para mostrar alerta de qualidade com opção de continuar
+function showQualityWarning(qualityResult) {
+    return new Promise(resolve => {
+        window.qualityWarningResolver = resolve;
+        
+        const qualityAlert = document.getElementById('qualityAlert');
+        const alertTitle = document.getElementById('qualityAlertTitle');
+        const alertMessage = document.getElementById('qualityAlertMessage');
+        
+        // Definir título e mensagem com base nos problemas detectados
+        if (qualityResult.issues.includes('dark')) {
+            alertTitle.textContent = 'Imagem Muito Escura';
+            alertMessage.textContent = qualityResult.details.darkMessage;
+        } else if (qualityResult.issues.includes('blurry')) {
+            alertTitle.textContent = 'Imagem Desfocada';
+            alertMessage.textContent = qualityResult.details.blurryMessage;
+        } else if (qualityResult.issues.includes('size')) {
+            alertTitle.textContent = 'Tamanho da Imagem Inadequado';
+            alertMessage.textContent = qualityResult.details.size;
+        } else {
+            alertTitle.textContent = 'Problema na Qualidade da Imagem';
+            alertMessage.textContent = 'A imagem capturada pode não ser adequada para processamento. Tente capturar novamente com melhor iluminação e foco.';
+        }
+        
+        // Exibir o alerta com animação
+        qualityAlert.classList.add('show');
+    });
+}
+
+// Função para mostrar overlay de carregamento
+function showLoadingOverlay(message = 'Processando...') {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    
+    if (loadingText) {
+        loadingText.textContent = message;
+    }
+    
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        
+        // Adicionar animação de fade-in
+        setTimeout(() => {
+            loadingOverlay.style.opacity = '1';
+        }, 10);
     }
 }
 
-// Função para mostrar aviso de qualidade da imagem
-async function showQualityWarning(qualityCheck) {
-    // Criando o elemento de alerta
-    const alertEl = document.createElement('div');
-    alertEl.className = 'quality-alert';
-    
-    let alertContent = `
-        <div class="quality-alert-content">
-            <h3><i class="fas fa-exclamation-triangle"></i> Aviso de Qualidade</h3>
-            <p>${qualityCheck.message}</p>
-            <p>Deseja continuar mesmo assim ou tentar novamente?</p>
-            <div class="quality-alert-buttons">
-                <button id="continue-anyway" class="alert-button continue">Continuar</button>
-                <button id="try-again" class="alert-button tryagain">Tentar Novamente</button>
-            </div>
-        </div>
-    `;
-    
-    alertEl.innerHTML = alertContent;
-    document.body.appendChild(alertEl);
-    
-    // Aplica animação de entrada
-    setTimeout(() => {
-        alertEl.classList.add('show');
-    }, 10);
-    
-    // Retorna uma Promise que será resolvida com a escolha do usuário
-    return new Promise(resolve => {
-        document.getElementById('continue-anyway').addEventListener('click', () => {
-            alertEl.classList.remove('show');
-            setTimeout(() => {
-                alertEl.remove();
-                resolve(true); // Continuar com a imagem atual
-            }, 300);
-        });
+// Função para esconder overlay de carregamento
+function hideLoadingOverlay() {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0';
         
-        document.getElementById('try-again').addEventListener('click', () => {
-            alertEl.classList.remove('show');
-            setTimeout(() => {
-                alertEl.remove();
-                resolve(false); // Tentar novamente
-            }, 300);
-        });
-    });
+        // Remover após a animação de fade-out
+        setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+        }, 300);
+    }
 }
 
 // Função para processar a imagem e extrair o texto
@@ -860,4 +942,738 @@ function onOpenCvReady() {
 function onOpenCvError() {
     console.error('Falha ao carregar OpenCV.js');
     alert('Algumas funcionalidades de processamento de imagem podem não estar disponíveis.');
+}
+
+// Inicializar configuração da API
+function initializeApiConfig() {
+    // Carregar configuração salva, se existir
+    const savedConfig = localStorage.getItem(storageKeyName);
+    if (savedConfig) {
+        try {
+            const config = JSON.parse(savedConfig);
+            openaiApiKey = config.key || '';
+            openaiModel = config.model || 'gpt-4-vision-preview';
+            
+            // Atualizar interface
+            if (openaiApiKey) {
+                apiStatusIndicator.classList.add('active');
+                document.getElementById('apiStatus').textContent = 'Configurado';
+                apiKeyInput.value = '••••••••••••••••••••••••••';
+            }
+            
+            // Definir o modelo selecionado
+            document.getElementById('modelSelect').value = openaiModel;
+            
+            // Definir opção de armazenamento
+            if (config.storage === 'session') {
+                document.getElementById('storeSession').checked = true;
+            } else {
+                document.getElementById('storeLocal').checked = true;
+            }
+            
+            // Configurar o uso de IA
+            useAI = config.useAI === true;
+            aiToggle.checked = useAI;
+        } catch (error) {
+            console.error('Erro ao carregar configuração da API:', error);
+        }
+    }
+    
+    // Configurar eventos
+    apiConfigButton.addEventListener('click', () => {
+        apiConfigModal.classList.add('show');
+        setTimeout(() => {
+            document.querySelector('.modal-content').style.opacity = '1';
+            document.querySelector('.modal-content').style.transform = 'translateY(0)';
+        }, 50);
+    });
+    
+    closeModalButton.addEventListener('click', () => {
+        document.querySelector('.modal-content').style.opacity = '0';
+        document.querySelector('.modal-content').style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            apiConfigModal.classList.remove('show');
+        }, 300);
+    });
+    
+    toggleKeyVisibility.addEventListener('click', toggleApiKeyVisibility);
+    
+    apiForm.addEventListener('submit', saveApiConfig);
+    
+    aiToggle.addEventListener('change', function() {
+        useAI = this.checked;
+        
+        // Salvar a alteração na configuração
+        const savedConfig = localStorage.getItem(storageKeyName);
+        if (savedConfig) {
+            try {
+                const config = JSON.parse(savedConfig);
+                config.useAI = useAI;
+                
+                // Armazenar a configuração atualizada
+                const storageType = config.storage || 'local';
+                if (storageType === 'session') {
+                    sessionStorage.setItem(storageKeyName, JSON.stringify(config));
+                } else {
+                    localStorage.setItem(storageKeyName, JSON.stringify(config));
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar configuração de uso de IA:', error);
+            }
+        }
+    });
+}
+
+// Alternar visibilidade da chave API
+function toggleApiKeyVisibility() {
+    const icon = toggleKeyVisibility.querySelector('i');
+    
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        apiKeyInput.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
+// Salvar configuração da API
+function saveApiConfig(event) {
+    event.preventDefault();
+    
+    // Obter valores do formulário
+    const key = apiKeyInput.value;
+    const model = document.getElementById('modelSelect').value;
+    const storageType = document.querySelector('input[name="storage"]:checked').value;
+    
+    // Validar chave API (versão simples)
+    if (key && !key.startsWith('sk-') && !key.includes('••••')) {
+        alert('A chave API parece inválida. Chaves API da OpenAI geralmente começam com "sk-"');
+        return;
+    }
+    
+    // Criar objeto de configuração
+    const config = {
+        key: key.includes('••••') ? openaiApiKey : key, // Manter a chave existente se o campo não foi alterado
+        model,
+        storage: storageType,
+        useAI
+    };
+    
+    // Armazenar configuração
+    if (storageType === 'session') {
+        sessionStorage.setItem(storageKeyName, JSON.stringify(config));
+    } else {
+        localStorage.setItem(storageKeyName, JSON.stringify(config));
+    }
+    
+    // Atualizar variáveis globais
+    openaiApiKey = config.key;
+    openaiModel = config.model;
+    
+    // Atualizar interface
+    apiStatusIndicator.classList.add('active');
+    document.getElementById('apiStatus').textContent = 'Configurado';
+    
+    // Fechar o modal
+    closeModalButton.click();
+    
+    showMessage('Configuração da API salva com sucesso!', 'success');
+}
+
+// Função para extrair dados de documentos usando o OpenAI API
+async function extractDataWithAI(imageDataUrl) {
+    if (!openaiApiKey || !useAI) {
+        return null;
+    }
+    
+    try {
+        showLoadingOverlay('Analisando documento com IA...');
+        
+        // Se estamos no GitHub Pages, alertar sobre possíveis problemas de CORS
+        if (isGitHubPages()) {
+            console.warn('Chamando OpenAI API a partir do GitHub Pages - podem ocorrer problemas de CORS');
+        }
+        
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${openaiApiKey}`
+            },
+            body: JSON.stringify({
+                model: openaiModel,
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Você é um assistente especializado em extrair informações de documentos brasileiros como RG, CPF, CNH, contas de luz, água e telefone. Forneça dados em formato JSON estruturado.'
+                    },
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'Extraia todas as informações relevantes deste documento. Inclua nome completo, números de identificação (RG, CPF, CNH), datas importantes, endereço, e quaisquer outros dados estruturados visíveis. Forneça os dados em formato JSON com campos claramente identificados. Use nomes de campos em português. Para documentos de contas, inclua valores, datas de vencimento e códigos de barras se visíveis.'
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: imageDataUrl
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens: 1500
+            })
+        });
+        
+        hideLoadingOverlay();
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Erro na API da OpenAI:', errorData);
+            
+            // Mensagem específica para erros de CORS no GitHub Pages
+            if (isGitHubPages() && (errorData.error?.code === 'cors_error' || response.status === 0)) {
+                showMessage('Erro de CORS ao tentar acessar a API da OpenAI no GitHub Pages. Considere usar a aplicação localmente.', 'error');
+            } else {
+                showMessage(`Erro na análise com IA: ${errorData.error?.message || 'Verifique sua chave API'}`, 'error');
+            }
+            return null;
+        }
+        
+        const data = await response.json();
+        if (data.choices && data.choices.length > 0) {
+            try {
+                // Tentar extrair o JSON da resposta
+                const contentText = data.choices[0].message.content;
+                const jsonMatch = contentText.match(/```json\s*([\s\S]*?)\s*```/) || 
+                                contentText.match(/{[\s\S]*}/);
+                
+                if (jsonMatch) {
+                    const jsonText = jsonMatch[0].replace(/```json|```/g, '').trim();
+                    const extractedData = JSON.parse(jsonText);
+                    return extractedData;
+                } else {
+                    console.warn('Não foi possível encontrar JSON na resposta:', contentText);
+                    return null;
+                }
+            } catch (parseError) {
+                console.error('Erro ao processar resposta da IA:', parseError);
+                return null;
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        hideLoadingOverlay();
+        console.error('Erro ao comunicar com a API da OpenAI:', error);
+        
+        // Mensagem específica para erros no GitHub Pages
+        if (isGitHubPages() && error.message.includes('Failed to fetch')) {
+            showMessage('Erro ao conectar com a API da OpenAI no GitHub Pages. Isto pode ser devido a restrições de CORS. Considere usar a aplicação localmente.', 'error');
+        } else {
+            showMessage('Erro ao conectar com a API da OpenAI. Verifique sua conexão e configurações.', 'error');
+        }
+        return null;
+    }
+}
+
+// Função para combinar resultados da IA com OCR convencional
+async function processDocumentData(imageDataUrl) {
+    // Primeiro, tenta extrair com OCR convencional
+    const ocrResult = await runOCR(imageDataUrl);
+    
+    // Se a opção de IA estiver ativada e tivermos uma chave API
+    if (useAI && openaiApiKey) {
+        try {
+            // Extrair com IA
+            const aiResult = await extractDataWithAI(imageDataUrl);
+            
+            if (aiResult) {
+                // Mostrar na interface que estamos usando resultado de IA
+                showMessage('Dados extraídos com inteligência artificial', 'info');
+                
+                // Formatar para exibição
+                return formatExtractedData(aiResult);
+            }
+        } catch (error) {
+            console.error('Erro ao processar com IA, usando OCR convencional:', error);
+        }
+    }
+    
+    // Se a IA não estiver disponível ou falhar, use o resultado do OCR
+    return formatOCRResults(ocrResult);
+}
+
+// Função auxiliar para formatar dados extraídos para exibição
+function formatExtractedData(data) {
+    let formattedText = '';
+    
+    // Formatar os dados de maneira legível
+    for (const [key, value] of Object.entries(data)) {
+        if (value && typeof value === 'object') {
+            formattedText += `${key.toUpperCase()}:\n`;
+            for (const [subKey, subValue] of Object.entries(value)) {
+                if (subValue) {
+                    formattedText += `  ${subKey}: ${subValue}\n`;
+                }
+            }
+        } else if (value) {
+            formattedText += `${key}: ${value}\n`;
+        }
+    }
+    
+    return formattedText;
+}
+
+// Inicializar elementos da câmera
+function initializeCamera() {
+    // Verificar se os elementos existem antes de tentar acessá-los
+    const startCameraButton = document.getElementById('startCameraBtn');
+    const captureImageButton = document.getElementById('captureBtn');
+    const switchCameraButton = document.getElementById('switchCameraBtn');
+    const recaptureButton = document.getElementById('recaptureBtn');
+    const processButton = document.getElementById('processBtn');
+    
+    if (startCameraButton && captureImageButton && switchCameraButton) {
+        startCameraButton.addEventListener('click', async function() {
+            await startCamera();
+            captureImageButton.disabled = false;
+            switchCameraButton.disabled = false;
+            this.disabled = true;
+        });
+        
+        captureImageButton.addEventListener('click', captureImage);
+        switchCameraButton.addEventListener('click', switchCamera);
+    }
+    
+    if (recaptureButton) {
+        recaptureButton.addEventListener('click', () => {
+            videoContainer.style.display = 'block';
+            capturedContainer.style.display = 'none';
+        });
+    }
+    
+    if (processButton) {
+        processButton.addEventListener('click', async function() {
+            const imageDataUrl = capturedImageElement.src;
+            if (!imageDataUrl) {
+                showMessage('Nenhuma imagem capturada. Capture uma imagem primeiro.', 'error');
+                return;
+            }
+            
+            showLoadingOverlay('Extraindo texto do documento...');
+            
+            try {
+                // Usar função atualizada com suporte a IA
+                const extractedText = await processDocumentData(imageDataUrl);
+                resultTextarea.value = extractedText;
+                hideLoadingOverlay();
+                
+                // Rolar até o resultado
+                document.querySelector('.result-container').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                showMessage('Texto extraído com sucesso!', 'success');
+            } catch (error) {
+                hideLoadingOverlay();
+                console.error('Erro ao processar documento:', error);
+                showMessage('Erro ao extrair texto. Por favor, tente novamente.', 'error');
+            }
+        });
+    }
+}
+
+// Registrar outros event listeners
+function registerEventListeners() {
+    // Event listener para o botão de copiar
+    const copyButton = document.getElementById('copyBtn');
+    if (copyButton) {
+        copyButton.addEventListener('click', () => {
+            const resultTextarea = document.getElementById('resultText');
+            if (!resultTextarea.value) {
+                showMessage('Não há texto para copiar', 'error');
+                return;
+            }
+            
+            resultTextarea.select();
+            document.execCommand('copy');
+            
+            // Animação de feedback visual
+            copyButton.classList.add('active');
+            setTimeout(() => {
+                copyButton.classList.remove('active');
+            }, 300);
+            
+            showMessage('Texto copiado para a área de transferência!', 'success');
+        });
+    }
+    
+    // Event listener para o botão de download
+    const downloadButton = document.getElementById('downloadBtn');
+    if (downloadButton) {
+        downloadButton.addEventListener('click', () => {
+            const resultTextarea = document.getElementById('resultText');
+            const text = resultTextarea.value;
+            if (!text) {
+                showMessage('Não há texto para baixar', 'warning');
+                return;
+            }
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'documento_extraido.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('Documento baixado com sucesso!', 'success');
+        });
+    }
+    
+    // Correção do evento do modal
+    const closeModalButton = document.getElementById('closeModal');
+    if (document.getElementById('closeModal2')) {
+        document.getElementById('closeModal2').addEventListener('click', () => {
+            closeModalButton.click();
+        });
+    }
+    
+    // Event listeners para o alerta de qualidade
+    if (document.getElementById('tryAgainBtn')) {
+        document.getElementById('tryAgainBtn').addEventListener('click', () => {
+            document.getElementById('qualityAlert').classList.remove('show');
+        });
+    }
+    
+    if (document.getElementById('continueBtn')) {
+        document.getElementById('continueBtn').addEventListener('click', () => {
+            document.getElementById('qualityAlert').classList.remove('show');
+            // Resolver a Promise no showQualityWarning
+            if (window.qualityWarningResolver) {
+                window.qualityWarningResolver(true);
+                window.qualityWarningResolver = null;
+            }
+        });
+    }
+    
+    // Adicionar responsividade para redimensionamento da janela
+    window.addEventListener('resize', function() {
+        const tipsToggle = document.querySelector('.tips-toggle');
+        const captureTips = document.querySelector('.capture-tips');
+        
+        if (tipsToggle && captureTips) {
+            // Ocultar dicas em dispositivos móveis por padrão
+            if (window.innerWidth <= 768) {
+                captureTips.classList.remove('show');
+                tipsToggle.classList.remove('active');
+            }
+        }
+    });
+}
+
+// Função para capturar imagem e processar o documento
+async function captureImage() {
+    if (!cameraElement || !cameraElement.srcObject) {
+        showMessage('Câmera não iniciada. Por favor, clique em "Iniciar Câmera" primeiro.', 'error');
+        return;
+    }
+    
+    // Adicionar efeito de flash à câmera
+    const flashOverlay = document.createElement('div');
+    flashOverlay.style.position = 'absolute';
+    flashOverlay.style.top = '0';
+    flashOverlay.style.left = '0';
+    flashOverlay.style.width = '100%';
+    flashOverlay.style.height = '100%';
+    flashOverlay.style.backgroundColor = 'white';
+    flashOverlay.style.opacity = '0';
+    flashOverlay.style.transition = 'opacity 0.1s ease-in-out';
+    flashOverlay.style.zIndex = '5';
+    flashOverlay.style.pointerEvents = 'none';
+    
+    videoContainer.appendChild(flashOverlay);
+    
+    // Animar o flash
+    setTimeout(() => {
+        flashOverlay.style.opacity = '0.8';
+        setTimeout(() => {
+            flashOverlay.style.opacity = '0';
+            setTimeout(() => {
+                videoContainer.removeChild(flashOverlay);
+            }, 100);
+        }, 100);
+    }, 0);
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = cameraElement.videoWidth;
+    canvas.height = cameraElement.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(cameraElement, 0, 0, canvas.width, canvas.height);
+    
+    // Verificar qualidade da imagem antes de processar
+    const imageQuality = checkImageQuality(canvas);
+    
+    if (imageQuality.hasIssues) {
+        // Mostrar alerta de qualidade com opção de continuar
+        const shouldContinue = await showQualityWarning(imageQuality);
+        if (!shouldContinue) {
+            return; // Usuário optou por tentar novamente
+        }
+    }
+    
+    const imageDataUrl = canvas.toDataURL('image/jpeg');
+    capturedImageElement.src = imageDataUrl;
+    capturedImageElement.style.display = 'block';
+    
+    videoContainer.style.display = 'none';
+    capturedContainer.style.display = 'block';
+    
+    // Adicionar feedback sonoro de captura
+    const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
+    captureSound.play();
+}
+
+// Função para mostrar mensagem ao usuário com animação melhorada
+function showMessage(message, type = 'info') {
+    // Criar elemento de mensagem se não existir
+    let messageContainer = document.getElementById('message-container');
+    
+    if (!messageContainer) {
+        messageContainer = document.createElement('div');
+        messageContainer.id = 'message-container';
+        document.body.appendChild(messageContainer);
+    }
+    
+    // Criar a mensagem
+    const messageBox = document.createElement('div');
+    messageBox.className = `message ${type}`;
+    
+    // Ícone baseado no tipo
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    if (type === 'error') icon = 'fa-exclamation-circle';
+    if (type === 'warning') icon = 'fa-exclamation-triangle';
+    
+    messageBox.innerHTML = `
+        <div class="message-content">
+            <i class="fas ${icon}"></i>
+            <span>${message}</span>
+        </div>
+        <div class="message-close">
+            <i class="fas fa-times"></i>
+        </div>
+    `;
+    
+    // Adicionar a mensagem ao container
+    messageContainer.appendChild(messageBox);
+    
+    // Adicionar evento para fechar ao clicar no X
+    messageBox.querySelector('.message-close').addEventListener('click', () => {
+        messageBox.style.opacity = '0';
+        messageBox.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            messageContainer.removeChild(messageBox);
+        }, 300);
+    });
+    
+    // Animar a entrada da mensagem
+    setTimeout(() => {
+        messageBox.classList.add('show');
+    }, 10);
+    
+    // Remover a mensagem após um intervalo
+    const timeout = setTimeout(() => {
+        messageBox.classList.remove('show');
+        
+        setTimeout(() => {
+            if (messageContainer.contains(messageBox)) {
+                messageContainer.removeChild(messageBox);
+            }
+        }, 300);
+    }, 5000);
+    
+    // Pausar o temporizador quando o mouse estiver sobre a mensagem
+    messageBox.addEventListener('mouseenter', () => {
+        clearTimeout(timeout);
+    });
+    
+    // Retomar o temporizador quando o mouse sair da mensagem
+    messageBox.addEventListener('mouseleave', () => {
+        const newTimeout = setTimeout(() => {
+            messageBox.classList.remove('show');
+            
+            setTimeout(() => {
+                if (messageContainer.contains(messageBox)) {
+                    messageContainer.removeChild(messageBox);
+                }
+            }, 300);
+        }, 2000);
+        
+        messageBox._timeout = newTimeout;
+    });
+}
+
+// Funções para controle da câmera
+let facingMode = 'environment'; // 'environment' é a câmera traseira
+
+// Iniciar a câmera
+async function startCamera() {
+    try {
+        // Interromper qualquer stream existente
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        
+        // Solicitar acesso à câmera
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: facingMode,
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+            }
+        });
+        
+        // Atribuir o stream ao elemento de vídeo
+        cameraElement.srcObject = stream;
+        
+        // Ativar botões relevantes
+        if (captureImageButton) captureImageButton.disabled = false;
+        if (switchCameraButton) switchCameraButton.disabled = false;
+        
+        // Atualizar UI
+        showMessage('Câmera iniciada com sucesso!', 'success');
+    } catch (error) {
+        console.error('Erro ao iniciar a câmera:', error);
+        showMessage('Não foi possível acessar a câmera. Verifique as permissões.', 'error');
+    }
+}
+
+// Alternar entre câmeras
+async function switchCamera() {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    
+    // Reiniciar a câmera com o novo facingMode
+    await startCamera();
+    
+    showMessage(`Câmera ${facingMode === 'environment' ? 'traseira' : 'frontal'} ativada`, 'info');
+}
+
+// Função para executar OCR
+async function runOCR(imageDataUrl) {
+    try {
+        const { data: { text } } = await Tesseract.recognize(
+            imageDataUrl,
+            'por', // Idioma português
+            { 
+                logger: m => console.log(m),
+                tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,-/()[]{}:;\'"`´~^<>!@#$%*&_+=|\\ãáàâéêíóôõúüç ' 
+            }
+        );
+        
+        return text;
+    } catch (error) {
+        console.error('Erro no OCR:', error);
+        throw new Error('Falha ao executar o reconhecimento de texto.');
+    }
+}
+
+// Função para formatar o resultado do OCR
+function formatOCRResults(text) {
+    if (!text) return '';
+    
+    // Substitui múltiplas quebras de linha por uma única
+    let formatted = text.replace(/\n{3,}/g, '\n\n');
+    
+    // Tenta identificar e formatar informações comuns em documentos brasileiros
+    
+    // CPF
+    const cpfRegex = /(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/g;
+    formatted = formatted.replace(cpfRegex, 'CPF: $1');
+    
+    // RG (vários formatos possíveis)
+    const rgRegex = /([0-9]{1,2})\.?([0-9]{3})\.?([0-9]{3})-?([0-9]|X|x)/g;
+    formatted = formatted.replace(rgRegex, 'RG: $1.$2.$3-$4');
+    
+    // Data de nascimento (formatos DD/MM/AAAA ou DD/MM/AA)
+    const dateRegex = /(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{2,4})/g;
+    formatted = formatted.replace(dateRegex, 'Data de nascimento: $1/$2/$3');
+    
+    // Título de eleitor (formato XXXX XXXX XXXX)
+    const eleitoralRegex = /(\d{4}\s?\d{4}\s?\d{4})/g;
+    formatted = formatted.replace(eleitoralRegex, 'Título de eleitor: $1');
+    
+    // CNH (formato XXXXXXXXXXX)
+    const cnhRegex = /([0-9]{11})/g;
+    // Não queremos substituir CPFs, então isso pode ser impreciso
+    // Esta regex simplificada é apenas um exemplo
+    
+    return formatted;
+}
+
+// Inicializar UI e animações
+function initializeUI() {
+    // Inicializar eventos dos botões do alerta de qualidade
+    const continueAnywayButton = document.getElementById('continueAnyway');
+    const tryAgainButton = document.getElementById('tryAgain');
+    
+    if (continueAnywayButton) {
+        continueAnywayButton.addEventListener('click', function() {
+            const qualityAlert = document.getElementById('qualityAlert');
+            qualityAlert.classList.remove('show');
+            
+            // Resolve a Promise retornada por showQualityWarning com true (continuar)
+            if (window.qualityWarningResolver) {
+                window.qualityWarningResolver(true);
+                window.qualityWarningResolver = null;
+            }
+        });
+    }
+    
+    if (tryAgainButton) {
+        tryAgainButton.addEventListener('click', function() {
+            const qualityAlert = document.getElementById('qualityAlert');
+            qualityAlert.classList.remove('show');
+            
+            // Resolve a Promise retornada por showQualityWarning com false (tentar novamente)
+            if (window.qualityWarningResolver) {
+                window.qualityWarningResolver(false);
+                window.qualityWarningResolver = null;
+            }
+        });
+    }
+    
+    // Lidar com dicas de captura
+    const tipsHeader = document.querySelector('.tips-header');
+    const tipsToggle = document.querySelector('.tips-toggle');
+    const captureTips = document.querySelector('.capture-tips');
+    
+    if (tipsHeader && tipsToggle && captureTips) {
+        tipsHeader.addEventListener('click', function() {
+            captureTips.classList.toggle('show');
+            tipsToggle.classList.toggle('active');
+        });
+        
+        // Ocultar dicas por padrão em dispositivos móveis
+        if (window.innerWidth <= 768) {
+            captureTips.classList.remove('show');
+        } else {
+            // Em desktop, mostrar por padrão
+            captureTips.classList.add('show');
+            tipsToggle.classList.add('active');
+        }
+    }
+    
+    // Adicionar transições suaves aos elementos da página
+    document.querySelectorAll('.fade-in-up, .fade-in-up-delay-1, .fade-in-up-delay-2, .fade-in-up-delay-3').forEach(el => {
+        el.style.opacity = '1';
+    });
 } 
