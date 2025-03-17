@@ -12,10 +12,22 @@
         <h1>Leitor de Documentos <span class="tech-badge">AI</span></h1>
         <p>Aponte a câmera para o seu RG ou CNH para leitura automática e extração de dados</p>
         
+        <div class="tips-container">
+            <p class="tips-toggle"><i class="fas fa-lightbulb"></i> Dicas para melhor leitura</p>
+            <ul class="capture-tips">
+                <li><i class="fas fa-check"></i> Posicione o documento <strong>completamente</strong> dentro da moldura</li>
+                <li><i class="fas fa-check"></i> Garanta boa iluminação, evitando sombras e reflexos</li>
+                <li><i class="fas fa-check"></i> Mantenha a câmera estável ao capturar a imagem</li>
+                <li><i class="fas fa-check"></i> Certifique-se que todo o texto está visível e legível</li>
+                <li><i class="fas fa-check"></i> Prefira fundos lisos e com contraste com o documento</li>
+            </ul>
+        </div>
+        
         <div class="camera-container">
             <video id="camera" autoplay playsinline></video>
             <div class="document-overlay">
                 <div class="document-frame"></div>
+                <div class="position-helper">Alinhe o documento dentro da moldura</div>
             </div>
             <div class="camera-corner top-left"></div>
             <div class="camera-corner top-right"></div>
@@ -35,6 +47,20 @@
             <div id="loading" class="loading" style="display: none;">Processando documento...</div>
             <div id="result" class="result-data">
                 <div class="placeholder-text">Os dados do documento aparecerão aqui após a captura</div>
+            </div>
+        </div>
+        
+        <div class="document-samples">
+            <p>Exemplos de documentos compatíveis:</p>
+            <div class="sample-images">
+                <div class="sample-image">
+                    <div class="sample-label">RG</div>
+                    <img src="https://dokutech.com.br/wp-content/uploads/2022/05/Novo-RG-2023.jpg" alt="Exemplo de RG">
+                </div>
+                <div class="sample-image">
+                    <div class="sample-label">CNH</div>
+                    <img src="https://vistovirtual.com.br/blog/wp-content/uploads/2022/06/img-post-nova-cnh-2022-1024x509.jpg" alt="Exemplo de CNH">
+                </div>
             </div>
         </div>
     </div>

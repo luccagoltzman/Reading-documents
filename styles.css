@@ -95,6 +95,133 @@ p {
     font-size: 1.1rem;
 }
 
+/* Dicas de captura */
+.tips-container {
+    max-width: 600px;
+    margin: 0 auto 25px;
+    background-color: rgba(58, 123, 213, 0.05);
+    border-radius: var(--border-radius);
+    padding: 15px;
+    border-left: 3px solid var(--primary-color);
+    text-align: left;
+    transition: var(--transition);
+}
+
+.tips-toggle {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+}
+
+.tips-toggle i {
+    margin-right: 8px;
+    color: var(--accent-color);
+}
+
+.capture-tips {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.capture-tips li {
+    padding: 6px 0;
+    color: var(--text-color);
+    display: flex;
+    align-items: flex-start;
+    font-size: 0.95rem;
+}
+
+.capture-tips li i {
+    color: #2ecc71;
+    margin-right: 10px;
+    margin-top: 2px;
+}
+
+.capture-tips li strong {
+    color: var(--primary-color);
+}
+
+/* Exemplos de documentos */
+.document-samples {
+    margin: 30px auto;
+    max-width: 700px;
+}
+
+.document-samples p {
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.sample-images {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.sample-image {
+    width: 225px;
+    position: relative;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.sample-image:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.sample-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: filter 0.3s ease;
+}
+
+.sample-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.position-helper {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    opacity: 0.9;
+    transition: var(--transition);
+    pointer-events: none;
+}
+
+.camera-active .position-helper {
+    opacity: 1;
+    animation: pulse-text 2s infinite;
+}
+
+@keyframes pulse-text {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+}
+
 .camera-container {
     position: relative;
     width: 100%;
@@ -561,4 +688,95 @@ p {
     .container {
         padding: 20px 15px;
     }
+}
+
+/* Alerta de qualidade da imagem */
+.quality-alert {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.quality-alert.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.quality-alert-content {
+    width: 90%;
+    max-width: 400px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transform: translateY(30px);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.quality-alert.show .quality-alert-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.quality-alert h3 {
+    color: var(--danger-color);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.quality-alert h3 i {
+    margin-right: 10px;
+}
+
+.quality-alert p {
+    color: var(--text-color);
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+}
+
+.quality-alert-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.alert-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.alert-button.continue {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.alert-button.tryagain {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.alert-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+}
+
+.alert-button:active {
+    transform: translateY(0);
 } 
