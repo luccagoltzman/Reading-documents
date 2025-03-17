@@ -4,7 +4,7 @@ const canvasElement = document.getElementById('canvas');
 const startCameraButton = document.getElementById('startCamera');
 const stopCameraButton = document.getElementById('stopCamera');
 const captureImageButton = document.getElementById('captureImage');
-const resultElement = document.getElementById('result');
+const resultElement = document.getElementById('resultContainer');
 const loadingElement = document.getElementById('loading');
 const tipsToggleElement = document.querySelector('.tips-toggle');
 const captureListElement = document.querySelector('.capture-tips');
@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Variáveis globais
 let stream = null;
+let currentFacingMode = 'environment'; // 'environment' para câmera traseira, 'user' para frontal
 let opencv_ready = false;
 
 // Evento para iniciar a câmera
@@ -115,23 +116,10 @@ startCameraButton.addEventListener('click', async () => {
 // Função para interromper a câmera
 function stopCamera() {
     if (stream) {
-        stream.getTracks().forEach(track => {
-            track.stop();
-        });
-        stream = null;
-        
-        // Limpa o src do elemento de vídeo
-        cameraElement.srcObject = null;
-        
-        // Atualiza o estado dos botões
-        startCameraButton.disabled = false;
-        stopCameraButton.disabled = true;
-        captureImageButton.disabled = true;
-        
-        // Remove a classe de câmera ativa
-        document.querySelector('.camera-container').classList.remove('camera-active');
-        
-        console.log('Câmera interrompida com sucesso');
+        stream.getTracks().forEach(track => track.stop());
+        if (cameraElement) {
+            cameraElement.srcObject = null;
+        }
     }
 }
 
@@ -1437,7 +1425,7 @@ async function captureImage() {
     capturedContainer.style.display = 'block';
     
     // Adicionar feedback sonoro de captura
-    const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
+    const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
     captureSound.play();
 }
 
@@ -1528,29 +1516,34 @@ let facingMode = 'environment'; // 'environment' é a câmera traseira
 // Iniciar a câmera
 async function startCamera() {
     try {
-        // Interromper qualquer stream existente
+        // Se já existe um stream ativo, interrompe
         if (stream) {
-            stream.getTracks().forEach(track => track.stop());
+            stopCamera();
         }
         
-        // Solicitar acesso à câmera
-        stream = await navigator.mediaDevices.getUserMedia({
+        const constraints = {
             video: {
-                facingMode: facingMode,
                 width: { ideal: 1920 },
-                height: { ideal: 1080 }
+                height: { ideal: 1080 },
+                facingMode: currentFacingMode
             }
-        });
+        };
+        
+        // Obter stream da câmera
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         // Atribuir o stream ao elemento de vídeo
-        cameraElement.srcObject = stream;
+        if (cameraElement) {
+            cameraElement.srcObject = stream;
+            
+            // Habilitar botões relevantes
+            if (captureImageButton) captureImageButton.disabled = false;
+            if (switchCameraButton) switchCameraButton.disabled = false;
+        }
         
-        // Ativar botões relevantes
-        if (captureImageButton) captureImageButton.disabled = false;
-        if (switchCameraButton) switchCameraButton.disabled = false;
-        
-        // Atualizar UI
+        // Mostrar mensagem de sucesso
         showMessage('Câmera iniciada com sucesso!', 'success');
+        
     } catch (error) {
         console.error('Erro ao iniciar a câmera:', error);
         showMessage('Não foi possível acessar a câmera. Verifique as permissões.', 'error');
@@ -1559,12 +1552,36 @@ async function startCamera() {
 
 // Alternar entre câmeras
 async function switchCamera() {
-    facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    
-    // Reiniciar a câmera com o novo facingMode
-    await startCamera();
-    
-    showMessage(`Câmera ${facingMode === 'environment' ? 'traseira' : 'frontal'} ativada`, 'info');
+    try {
+        // Inverter o modo da câmera
+        currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+        
+        // Parar o stream atual
+        stopCamera();
+        
+        // Reiniciar com o novo modo
+        const constraints = {
+            video: {
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                facingMode: currentFacingMode
+            }
+        };
+        
+        // Obter stream da câmera
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // Atribuir o stream ao elemento de vídeo
+        if (cameraElement) {
+            cameraElement.srcObject = stream;
+        }
+        
+        showMessage(`Câmera ${currentFacingMode === 'user' ? 'frontal' : 'traseira'} ativada`, 'info');
+        
+    } catch (error) {
+        console.error('Erro ao trocar câmera:', error);
+        showMessage('Erro ao trocar câmera', 'error');
+    }
 }
 
 // Função para executar OCR

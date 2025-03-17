@@ -9,10 +9,13 @@
     --danger-gradient: linear-gradient(135deg, #e63946, #d00000);
     --success-color: #06d6a0;
     --success-gradient: linear-gradient(135deg, #06d6a0, #02c39a);
+    --warning-color: #f59e0b;
+    --warning-gradient: linear-gradient(135deg, #f59e0b, #d97706);
     --text-color: #2b2d42;
     --text-muted: #6c757d;
     --light-bg: #f8f9fa;
     --card-bg: rgba(255, 255, 255, 0.95);
+    --bg-color: #ffffff;
     --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
     --shadow: 0 10px 15px rgba(0, 0, 0, 0.07);
     --shadow-lg: 0 15px 25px rgba(0, 0, 0, 0.1);
@@ -369,7 +372,7 @@ p {
     border-radius: 3px;
 }
 
-textarea#result {
+textarea#resultText {
     width: 100%;
     min-height: 150px;
     padding: 15px;
@@ -385,16 +388,42 @@ textarea#result {
     transition: var(--transition);
 }
 
-textarea#result:focus {
+textarea#resultText:focus {
     outline: none;
     border-color: var(--primary-light);
     box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
 }
 
-.result-actions {
+.result-controls {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    margin-bottom: 15px;
+}
+
+.result-controls button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--light-bg);
+    color: var(--text-color);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: var(--transition-bounce);
+}
+
+.result-controls button:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-3px);
+}
+
+.result-controls button:active {
+    transform: scale(0.95);
 }
 
 /* Overlay de carregamento */
@@ -1123,11 +1152,11 @@ input:checked + .ai-slider .ai-label {
         width: 100%;
     }
     
-    .result-actions {
+    .result-controls {
         flex-direction: column;
     }
     
-    .result-actions .btn {
+    .result-controls .btn {
         width: 100%;
     }
 }
