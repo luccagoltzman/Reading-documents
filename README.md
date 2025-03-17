@@ -1,52 +1,75 @@
-# Leitor de Documentos com Câmera
+# 📄 Leitor de Documentos
 
-Um aplicativo web que permite a leitura e extração de informações de documentos (RG e CNH) usando a câmera do dispositivo.
+![Status: Em Desenvolvimento](https://img.shields.io/badge/Status-Em%20Desenvolvimento-yellow)
 
-## Funcionalidades
+Um aplicativo web para captura, análise e extração de dados de documentos usando processamento de imagem e inteligência artificial.
 
-- Captura de imagens usando a câmera do dispositivo
-- Processamento de imagem para melhorar a qualidade da leitura
-- Reconhecimento óptico de caracteres (OCR) para extrair texto
-- Análise e identificação automática de informações em documentos de identidade e CNH
-- Interface responsiva que funciona em smartphones e desktops
+> ⚠️ **AVISO:** Este projeto está em fase de desenvolvimento ativo e pode conter funcionalidades incompletas ou bugs.
 
-## Tecnologias Utilizadas
+## 🚀 Funcionalidades
 
-- **HTML5**: Estrutura da aplicação e acesso à câmera via MediaDevices API
-- **CSS3**: Estilização da interface com design responsivo
-- **JavaScript**: Implementação da lógica da aplicação
-- **Tesseract.js**: Biblioteca de OCR para reconhecimento de texto
-- **OpenCV.js**: Biblioteca de visão computacional para pré-processamento de imagem
+- ✅ Captura de imagens via webcam
+- ✅ Troca entre câmera frontal e traseira
+- ✅ Verificação da qualidade da imagem (brilho, foco, tamanho)
+- ✅ Processamento de imagem para melhorar leitura do texto
+- ✅ Extração de texto via OCR (Tesseract.js)
+- ✅ Extração avançada de dados com OpenAI (GPT-4 Vision)
+- ✅ Interface responsiva para desktop e dispositivos móveis
 
-## Como Usar
+## 🔧 Tecnologias
 
-1. Abra a aplicação em um navegador moderno (Chrome, Firefox, Safari ou Edge)
-2. Clique em "Iniciar Câmera" e conceda permissão de acesso
-3. Posicione o documento dentro da área demarcada na tela
-4. Clique em "Capturar Imagem"
-5. Aguarde o processamento e visualize as informações extraídas
+- HTML5, CSS3 e JavaScript (Vanilla)
+- [Tesseract.js](https://github.com/naptha/tesseract.js) para OCR
+- [OpenCV.js](https://docs.opencv.org/4.5.5/df/d0a/tutorial_js_intro.html) para processamento de imagem
+- [OpenAI API](https://openai.com/api/) (GPT-4 Vision) para análise inteligente de documentos
+- Font Awesome para ícones
 
-## Recomendações para Melhor Resultado
+## 📋 Requisitos
 
-- Use em ambiente bem iluminado
-- Evite reflexos e sombras sobre o documento
-- Mantenha o documento completamente dentro da área demarcada
-- Segure o dispositivo de forma estável ao capturar a imagem
+- Navegador moderno com suporte a JavaScript ES6+
+- Acesso à webcam
+- Conexão com a internet
+- Chave de API da OpenAI (opcional, para recursos de IA)
 
-## Privacidade
+## 🚀 Como usar
 
-- Todo o processamento é realizado localmente no seu dispositivo
-- Nenhuma imagem ou dado do documento é enviado para servidores externos
-- Não há armazenamento permanente das informações extraídas
+1. Clone o repositório:
+   ```bash
+   git clone https://github.com/seu-usuario/leitor-documentos.git
+   ```
 
-## Limitações
+2. Abra o arquivo `index.html` em seu navegador ou utilize um servidor web local.
 
-- A precisão do reconhecimento depende da qualidade da imagem capturada
-- Documentos com degradação física, reflexos ou má iluminação podem ter reconhecimento prejudicado
-- Alguns formatos mais antigos ou não padronizados podem não ser reconhecidos corretamente
+3. Para recursos de IA:
+   - Clique em "Configurar API OpenAI"
+   - Insira sua chave de API
+   - Ative a opção "Usar Inteligência Artificial"
 
-## Requisitos de Sistema
+4. Siga as instruções na interface para capturar e processar documentos.
 
-- Navegador com suporte a JavaScript ES6+
-- Acesso à câmera do dispositivo
-- Conexão com a internet (apenas para o carregamento inicial das bibliotecas)
+## 🧠 Integração com IA
+
+A integração com a API da OpenAI permite:
+
+- Reconhecimento preciso do tipo de documento (RG, CPF, CNH, etc.)
+- Extração estruturada de dados como nome, números de documentos, datas
+- Melhoria significativa na precisão em relação ao OCR tradicional
+
+> 🔒 **Segurança:** As chaves de API são armazenadas apenas localmente em seu navegador e nunca são enviadas para nossos servidores.
+
+## 🛣️ Próximos passos
+
+- [ ] Suporte para captura de múltiplas páginas
+- [ ] Melhoria na detecção automática de bordas do documento
+- [ ] Exportação para formatos adicionais (PDF, JSON)
+- [ ] Reconhecimento de QR Codes e códigos de barras
+- [ ] Suporte offline para funcionalidades básicas
+- [ ] Implementação de PWA (Progressive Web App)
+
+## 📝 Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
+
+---
+
+Desenvolvido por [Lucca Goltzman](https://github.com/luccagoltzman) - 2025
