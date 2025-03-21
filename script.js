@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar configuração da API
     initializeApiConfig();
     
+    // Controle do tooltip de informações da IA
+    setupTooltip();
+    
     // Verificar se estamos no GitHub Pages e mostrar mensagem apropriada
     if (isGitHubPages()) {
         console.log('Executando em GitHub Pages - CORS pode ser um problema para chamadas diretas à API OpenAI');
@@ -1425,7 +1428,7 @@ async function captureImage() {
         if (capturedContainer) capturedContainer.style.display = 'block';
         
         // Adicionar feedback sonoro de captura
-        const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
+        const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
         captureSound.play();
         
         // Verificar a qualidade da imagem
@@ -1737,4 +1740,47 @@ function initializeUI() {
     document.querySelectorAll('.fade-in-up, .fade-in-up-delay-1, .fade-in-up-delay-2, .fade-in-up-delay-3').forEach(el => {
         el.style.opacity = '1';
     });
+}
+
+// Função para configurar o comportamento do tooltip
+function setupTooltip() {
+    const tooltipTrigger = document.querySelector('.tooltip-trigger');
+    const tooltipContent = document.querySelector('.ai-tooltip-text');
+    const tooltipClose = document.querySelector('.tooltip-close');
+    
+    if (tooltipTrigger && tooltipContent) {
+        // Quando o usuário clicar no ícone de informação
+        tooltipTrigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            tooltipContent.classList.add('show');
+            
+            // Adicionar uma pequena animação ao ícone
+            this.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 300);
+        });
+        
+        // Quando o usuário clicar no botão de fechar
+        if (tooltipClose) {
+            tooltipClose.addEventListener('click', function(e) {
+                e.stopPropagation();
+                tooltipContent.classList.remove('show');
+            });
+        }
+        
+        // Fechar o tooltip quando clicar fora dele
+        document.addEventListener('click', function(e) {
+            if (!tooltipContent.contains(e.target) && e.target !== tooltipTrigger) {
+                tooltipContent.classList.remove('show');
+            }
+        });
+        
+        // Fechar o tooltip com a tecla ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && tooltipContent.classList.contains('show')) {
+                tooltipContent.classList.remove('show');
+            }
+        });
+    }
 } 

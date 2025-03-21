@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leitor de Documentos</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Roboto+Mono&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Roboto+Mono&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
     <script src="https://docs.opencv.org/4.5.5/opencv.js" async></script>
 </head>
+
 <body>
     <div class="container">
         <header class="fade-in-up">
             <h1>Leitor de <span>Documentos</span></h1>
             <p>Capture documentos e extraia informações com precisão e inteligência artificial</p>
         </header>
-        
+
         <!-- Configuração da OpenAI API -->
         <div class="ai-config fade-in-up-delay-1">
             <button id="apiConfigButton" class="ai-config-button">
@@ -37,11 +40,15 @@
                 </span>
             </label>
             <div class="ai-tooltip">
-                <i class="fas fa-info-circle"></i>
-                <span class="ai-tooltip-text">Quando ativado, o sistema usará IA para analisar as imagens capturadas e extrair dados mais precisos dos documentos. Requer chave API válida da OpenAI.</span>
+                <i class="fas fa-info-circle tooltip-trigger"></i>
+                <div class="ai-tooltip-text">
+                    <span>Quando ativado, o sistema usará IA para analisar as imagens capturadas e
+                    extrair dados mais precisos dos documentos. Requer chave API válida da OpenAI.</span>
+                    <button class="tooltip-close"><i class="fas fa-times"></i></button>
+                </div>
             </div>
         </div>
-        
+
         <div class="camera-container fade-in-up-delay-2">
             <div id="video-container">
                 <video id="camera" autoplay playsinline></video>
@@ -71,8 +78,8 @@
                 </div>
             </div>
         </div>
-        
-        <div class="tips-section fade-in-up-delay-2">
+
+        <!-- <div class="tips-section fade-in-up-delay-2">
             <div class="tips-header">
                 <h3><i class="fas fa-lightbulb"></i> Dicas para Captura <span class="tips-toggle"><i class="fas fa-chevron-down"></i></span></h3>
             </div>
@@ -83,8 +90,8 @@
                 <li><i class="fas fa-check-circle"></i> Enquadre todo o documento dentro das bordas</li>
                 <li><i class="fas fa-check-circle"></i> Mantenha a câmera estável ao capturar</li>
             </ul>
-        </div>
-        
+        </div> -->
+
         <div class="result-container fade-in-up-delay-3">
             <h2>Resultado:</h2>
             <div class="result-controls">
@@ -94,7 +101,7 @@
             <textarea id="resultText" readonly></textarea>
         </div>
     </div>
-    
+
     <!-- Overlay de carregamento -->
     <div id="loading-overlay" class="loading-overlay">
         <div class="spinner"></div>
@@ -112,14 +119,14 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Modal de configuração da API -->
     <div id="apiConfigModal" class="modal">
         <div class="modal-content">
             <button id="closeModal" class="close-modal"><i class="fas fa-times"></i></button>
             <h3><i class="fas fa-key"></i> Configuração da API</h3>
             <p>Configure sua chave API da OpenAI para ativar os recursos de IA para extração avançada de dados.</p>
-            
+
             <form id="apiForm" class="api-form">
                 <div class="form-group">
                     <label for="apiKeyInput">Chave API da OpenAI</label>
@@ -130,7 +137,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="modelSelect">Modelo</label>
                     <select id="modelSelect">
@@ -138,7 +145,7 @@
                         <option value="gpt-4o">GPT-4o</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label>Onde armazenar sua chave API:</label>
                     <div class="storage-options">
@@ -155,7 +162,7 @@
                         <i class="fas fa-shield-alt"></i> Sua chave é armazenada apenas em seu navegador.
                     </small>
                 </div>
-                
+
                 <div class="form-actions">
                     <button type="button" class="btn secondary-btn" id="closeModal2">Cancelar</button>
                     <button type="submit" class="btn primary-btn">Salvar</button>
@@ -163,12 +170,13 @@
             </form>
         </div>
     </div>
-    
+
     <footer>
         <p>&copy; 2025 Leitor de Documentos - Extração de dados com IA</p>
         <p>Desenvolvido por: Lucca Goltzman</p>
     </footer>
-    
+
     <script src="script.js"></script>
 </body>
-</html> 
+
+</html>

@@ -1168,4 +1168,123 @@ footer p {
         background-position: calc(100% - 10px) center;
         padding-right: 30px;
     }
+}
+
+/* Estilo do AI tooltip */
+.ai-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 8px;
+    z-index: 10;
+}
+
+.tooltip-trigger {
+    cursor: pointer;
+    color: var(--primary-color);
+    font-size: 18px;
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.tooltip-trigger:hover {
+    color: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.ai-tooltip-text {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: 135%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    width: 280px;
+    background-color: white;
+    color: var(--text-color);
+    text-align: left;
+    border-radius: var(--border-radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    transition: opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                visibility 0.4s linear;
+    z-index: 20;
+}
+
+.ai-tooltip-text.show {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.ai-tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -8px;
+    border-width: 8px;
+    border-style: solid;
+    border-color: white transparent transparent transparent;
+}
+
+.ai-tooltip-text span {
+    display: block;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.tooltip-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.tooltip-close:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--danger-color);
+}
+
+/* Media query para telas menores */
+@media (max-width: 480px) {
+    .ai-tooltip-text {
+        position: fixed;
+        bottom: 115%;
+        left: 50%;
+        transform: translate(-50%, 0);
+        width: 90%;
+        max-width: 320px;
+        font-size: 0.9rem;
+        margin: 0;
+        z-index: 9999;
+    }
+    
+    .ai-tooltip-text.show {
+        transform: translate(-50%, 0);
+    }
+    
+    .ai-tooltip-text::after {
+        display: none; /* Removemos a seta quando centralizado na tela */
+    }
+    
+    .ai-tooltip-text::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: -1;
+    }
 } 
