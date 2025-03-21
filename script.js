@@ -1213,25 +1213,362 @@ async function processDocumentData(imageDataUrl) {
     return formatOCRResults(ocrResult);
 }
 
+// Função para formatar o resultado do OCR
+function formatOCRResults(text) {
+    if (!text) return '';
+    
+    // Construir objeto similar ao que recebemos da IA
+    const extractedData = {
+        pessoal: {},
+        documentos: {},
+        filiacao: {},
+        outros: { texto_extraido: text }
+    };
+    
+    // Procurar padrões em texto bruto
+    
+    // Nome completo (geralmente precedido por "Nome:" ou sozinho numa linha)
+    const nameRegex = /(?:nome[:]*\s+)?([A-Z][a-z]+\s+(?:[A-Z][a-z]+\s+)+[A-Z][a-z]+)/gi;
+    const nameMatches = text.match(nameRegex);
+    if (nameMatches && nameMatches.length > 0) {
+        // Usar o primeiro match que parece mais completo
+        nameMatches.sort((a, b) => b.length - a.length);
+        const name = nameMatches[0].replace(/nome[:]*\s+/i, '').trim();
+        if (name && name.length > 10) {
+            extractedData.pessoal.nome = name;
+        }
+    }
+    
+    // RG
+    const rgRegex = /(?:identidade|registro geral|rg)[:]*\s*([0-9][0-9\s.-]{5,14})/gi;
+    const rgMatch = rgRegex.exec(text);
+    if (rgMatch && rgMatch[1]) {
+        extractedData.documentos.rg = rgMatch[1].trim();
+    } else {
+        // Tentar encontrar formato de RG sem prefixo
+        const simpleRgRegex = /\b([0-9]{1,2}\.?[0-9]{3}\.?[0-9]{3}-?[0-9Xx]?)\b/g;
+        const simpleRgMatch = simpleRgRegex.exec(text);
+        if (simpleRgMatch && simpleRgMatch[1]) {
+            extractedData.documentos.rg = simpleRgMatch[1];
+        }
+    }
+    
+    // CPF
+    const cpfRegex = /(?:cpf|cadastro de pessoa)[:]*\s*([0-9][0-9.\s-]{8,14})/gi;
+    const cpfMatch = cpfRegex.exec(text);
+    if (cpfMatch && cpfMatch[1]) {
+        extractedData.documentos.cpf = cpfMatch[1].trim();
+    } else {
+        // Procurar formato padrão de CPF
+        const simpleCpfRegex = /\b([0-9]{3}\.?[0-9]{3}\.?[0-9]{3}-?[0-9]{2})\b/g;
+        const simpleCpfMatch = simpleCpfRegex.exec(text);
+        if (simpleCpfMatch && simpleCpfMatch[1]) {
+            extractedData.documentos.cpf = simpleCpfMatch[1];
+        }
+    }
+    
+    // Data de nascimento
+    const birthDateRegex = /(?:nascimento|data de nasc|dt\.nasc)[:]*\s*([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})/gi;
+    const birthDateMatch = birthDateRegex.exec(text);
+    if (birthDateMatch && birthDateMatch[1]) {
+        extractedData.pessoal.data_nascimento = birthDateMatch[1].trim();
+    } else {
+        // Formato de data diretamente
+        const simpleDateRegex = /\b([0-9]{2}\/[0-9]{2}\/(?:19|20)[0-9]{2})\b/g;
+        const simpleDateMatch = simpleDateRegex.exec(text);
+        if (simpleDateMatch && simpleDateMatch[1]) {
+            extractedData.pessoal.data_nascimento = simpleDateMatch[1];
+        }
+    }
+    
+    // Nome da mãe
+    const motherRegex = /(?:mãe|mae|filiação)[:]*\s*([A-Z][a-z]+\s+(?:[A-Z][a-z]+\s+)+[A-Z][a-z]+)/gi;
+    const motherMatch = motherRegex.exec(text);
+    if (motherMatch && motherMatch[1]) {
+        extractedData.filiacao.nome_mae = motherMatch[1].trim();
+    }
+    
+    // Nome do pai (mais difícil de extrair sem contexto claro)
+    const fatherRegex = /(?:pai|genitor)[:]*\s*([A-Z][a-z]+\s+(?:[A-Z][a-z]+\s+)+[A-Z][a-z]+)/gi;
+    const fatherMatch = fatherRegex.exec(text);
+    if (fatherMatch && fatherMatch[1]) {
+        extractedData.filiacao.nome_pai = fatherMatch[1].trim();
+    }
+    
+    // Formatar os dados para exibição
+    return formatExtractedData(extractedData);
+}
+
 // Função auxiliar para formatar dados extraídos para exibição
 function formatExtractedData(data) {
     let formattedText = '';
+    const dataForDownload = {};
     
-    // Formatar os dados de maneira legível
-    for (const [key, value] of Object.entries(data)) {
-        if (value && typeof value === 'object') {
-            formattedText += `${key.toUpperCase()}:\n`;
-            for (const [subKey, subValue] of Object.entries(value)) {
-                if (subValue) {
-                    formattedText += `  ${subKey}: ${subValue}\n`;
+    // Processamento específico para documentos
+    const processedData = processExtractedData(data);
+    
+    // Popular os cartões com os dados processados
+    updateResultCards(processedData);
+    
+    // Criar uma versão formatada para o textarea oculto (usado para cópia/download)
+    for (const category in processedData) {
+        if (processedData[category] && Object.keys(processedData[category]).length > 0) {
+            formattedText += `${category.toUpperCase()}:\n`;
+            dataForDownload[category] = {};
+            
+            for (const [field, value] of Object.entries(processedData[category])) {
+                if (value && value !== '-') {
+                    formattedText += `  ${field}: ${value}\n`;
+                    dataForDownload[category][field] = value;
                 }
             }
-        } else if (value) {
-            formattedText += `${key}: ${value}\n`;
+            formattedText += '\n';
         }
     }
     
     return formattedText;
+}
+
+// Função para processar dados do documento JSON em categorias organizadas
+function processExtractedData(data) {
+    // Objeto para armazenar dados organizados por categoria
+    const processedData = {
+        pessoal: {},
+        documentos: {},
+        filiacao: {},
+        outros: {}
+    };
+    
+    // Processamento dos dados:
+    // 1. Converte chaves para minúsculas para normalização
+    // 2. Realiza correspondência de campos com base em padrões
+    for (const [key, value] of Object.entries(data)) {
+        // Normalizar chave
+        const normalizedKey = key.toLowerCase().trim();
+        
+        // Ignorar se valor for vazio, undefined ou objeto vazio
+        if (!value || value === '-' || 
+            (typeof value === 'object' && Object.keys(value).length === 0)) {
+            continue;
+        }
+        
+        // Se valor for objeto, processar seus campos internos
+        if (typeof value === 'object') {
+            for (const [subKey, subValue] of Object.entries(value)) {
+                if (!subValue || subValue === '-') continue;
+                addToProcessedData(subKey, subValue, processedData);
+            }
+        } else {
+            // Processar valor direto
+            addToProcessedData(normalizedKey, value, processedData);
+        }
+    }
+    
+    return processedData;
+}
+
+// Função auxiliar para adicionar campo ao objeto de dados processados
+function addToProcessedData(key, value, processedData) {
+    // Normalizar chave para facilitar a correspondência
+    const normalizedKey = key.toLowerCase().trim();
+    
+    // Verificar se o valor parece válido
+    if (!value || value === '-' || value.toString().length < 2) {
+        return;
+    }
+    
+    // Correspondência para informações pessoais
+    if (normalizedKey.includes('nome completo') || 
+        normalizedKey === 'nome' || 
+        normalizedKey.includes('titular')) {
+        processedData.pessoal['nome'] = value;
+    }
+    else if (normalizedKey.includes('nascimento') || 
+        normalizedKey.includes('data de nasc') || 
+        normalizedKey.includes('dt.nasc')) {
+        processedData.pessoal['data_nascimento'] = value;
+    }
+    else if (normalizedKey.includes('nacionalidade')) {
+        processedData.pessoal['nacionalidade'] = value;
+    }
+    else if (normalizedKey.includes('naturalidade')) {
+        processedData.pessoal['naturalidade'] = value;
+    }
+    // Documentos
+    else if (normalizedKey.includes('rg') || 
+        normalizedKey.includes('registro geral') || 
+        normalizedKey.includes('identidade')) {
+        processedData.documentos['rg'] = value;
+    }
+    else if (normalizedKey.includes('cpf') || 
+        normalizedKey.includes('cadastro de pessoa')) {
+        processedData.documentos['cpf'] = value;
+    }
+    else if (normalizedKey.includes('cnh') || 
+        normalizedKey.includes('carteira nacional')) {
+        processedData.documentos['cnh'] = value;
+    }
+    else if (normalizedKey.includes('título de eleitor') || 
+        normalizedKey.includes('eleitor')) {
+        processedData.documentos['titulo_eleitor'] = value;
+    }
+    // Filiação
+    else if (normalizedKey.includes('mãe') || 
+        normalizedKey.includes('mae') || 
+        normalizedKey.includes('genitora')) {
+        processedData.filiacao['nome_mae'] = value;
+    }
+    else if (normalizedKey.includes('pai') || 
+        normalizedKey.includes('genitor')) {
+        processedData.filiacao['nome_pai'] = value;
+    }
+    // Se não encontrou correspondência específica
+    else {
+        // Verificar se parece um nome (contém espaço e letras)
+        if (/^[A-Za-zÀ-ÖØ-öø-ÿ\s]+$/.test(value) && 
+            value.includes(' ') && 
+            value.length > 10 && 
+            !processedData.pessoal['nome']) {
+            processedData.pessoal['nome'] = value;
+        }
+        // Verificar se parece um RG (números e pontos)
+        else if (/^[0-9.\-\/x]+$/i.test(value) && 
+                 !processedData.documentos['rg'] && 
+                 value.length >= 7 && value.length <= 14) {
+            processedData.documentos['rg'] = value;
+        }
+        // Verificar se parece um CPF
+        else if (/^[0-9.\-\/]+$/.test(value) && 
+                 (value.length === 11 || value.length === 14) && 
+                 !processedData.documentos['cpf']) {
+            const formattedCPF = value.replace(/[^\d]/g, '');
+            if (formattedCPF.length === 11) {
+                processedData.documentos['cpf'] = value;
+            }
+        }
+        // Se não encontrou lugar específico, adicionar a outros
+        else {
+            // Tentar detectar nome do campo com base na chave
+            const fieldName = cleanUpFieldName(normalizedKey);
+            if (fieldName) {
+                processedData.outros[fieldName] = value;
+            }
+        }
+    }
+    
+    return processedData;
+}
+
+// Função para limpar nome do campo
+function cleanUpFieldName(key) {
+    // Remover caracteres especiais e normalizar
+    const cleaned = key.replace(/[^a-zA-Z0-9\s]/g, ' ')
+                      .replace(/\s+/g, '_')
+                      .toLowerCase();
+                      
+    return cleaned || 'campo';
+}
+
+// Função para atualizar os cartões de resultado com os dados processados
+function updateResultCards(data) {
+    // Atualizar cartão de informações pessoais
+    if (data.pessoal) {
+        updateCardFields('personal-info', data.pessoal, {
+            'nome': 'nome',
+            'data_nascimento': 'data-nascimento',
+            'nacionalidade': 'nacionalidade',
+            'naturalidade': 'naturalidade'
+        });
+    }
+    
+    // Atualizar cartão de documentos
+    if (data.documentos) {
+        updateCardFields('document-info', data.documentos, {
+            'rg': 'rg',
+            'cpf': 'cpf',
+            'cnh': 'cnh',
+            'titulo_eleitor': 'titulo-eleitor'
+        });
+    }
+    
+    // Atualizar cartão de filiação
+    if (data.filiacao) {
+        updateCardFields('filiation-info', data.filiacao, {
+            'nome_mae': 'nome-mae',
+            'nome_pai': 'nome-pai'
+        });
+    }
+    
+    // Atualizar cartão de outras informações
+    if (data.outros && Object.keys(data.outros).length > 0) {
+        const otherInfoContainer = document.getElementById('other-info');
+        if (otherInfoContainer) {
+            // Limpar conteúdo anterior
+            otherInfoContainer.innerHTML = '';
+            
+            // Adicionar cada campo
+            for (const [key, value] of Object.entries(data.outros)) {
+                if (value) {
+                    const infoRow = document.createElement('div');
+                    infoRow.className = 'info-row';
+                    infoRow.innerHTML = `
+                        <span class="info-label">${formatFieldLabel(key)}:</span>
+                        <span class="info-value">${value}</span>
+                    `;
+                    otherInfoContainer.appendChild(infoRow);
+                }
+            }
+            
+            // Se não houver dados, mostrar mensagem
+            if (otherInfoContainer.children.length === 0) {
+                otherInfoContainer.innerHTML = `
+                    <div class="info-row">
+                        <span class="info-value empty">Nenhuma informação adicional encontrada.</span>
+                    </div>
+                `;
+            }
+        }
+    }
+}
+
+// Função auxiliar para atualizar campos em um cartão
+function updateCardFields(containerId, data, fieldMapping) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    // Para cada mapeamento de campo
+    for (const [dataField, htmlId] of Object.entries(fieldMapping)) {
+        const row = document.getElementById(htmlId);
+        if (row) {
+            const valueSpan = row.querySelector('.info-value');
+            if (valueSpan) {
+                // Se temos um valor, atualizá-lo com destaque
+                if (data[dataField]) {
+                    valueSpan.textContent = data[dataField];
+                    valueSpan.classList.remove('empty');
+                    
+                    // Adicionar animação de destaque
+                    valueSpan.classList.remove('highlight');
+                    setTimeout(() => { 
+                        valueSpan.classList.add('highlight');
+                    }, 10);
+                } else {
+                    // Caso contrário, mostrar placeholder
+                    valueSpan.textContent = '-';
+                    valueSpan.classList.add('empty');
+                }
+            }
+        }
+    }
+}
+
+// Função para formatar o rótulo do campo para exibição
+function formatFieldLabel(key) {
+    // Substituir underscores por espaços
+    const formatted = key.replace(/_/g, ' ')
+                         // Colocar primeira letra de cada palavra em maiúscula
+                         .replace(/\b\w/g, c => c.toUpperCase());
+    return formatted;
 }
 
 // Inicializar elementos da câmera
@@ -1648,39 +1985,6 @@ async function runOCR(imageDataUrl) {
         console.error('Erro no OCR:', error);
         throw new Error('Falha ao executar o reconhecimento de texto.');
     }
-}
-
-// Função para formatar o resultado do OCR
-function formatOCRResults(text) {
-    if (!text) return '';
-    
-    // Substitui múltiplas quebras de linha por uma única
-    let formatted = text.replace(/\n{3,}/g, '\n\n');
-    
-    // Tenta identificar e formatar informações comuns em documentos brasileiros
-    
-    // CPF
-    const cpfRegex = /(\d{3}\.?\d{3}\.?\d{3}-?\d{2})/g;
-    formatted = formatted.replace(cpfRegex, 'CPF: $1');
-    
-    // RG (vários formatos possíveis)
-    const rgRegex = /([0-9]{1,2})\.?([0-9]{3})\.?([0-9]{3})-?([0-9]|X|x)/g;
-    formatted = formatted.replace(rgRegex, 'RG: $1.$2.$3-$4');
-    
-    // Data de nascimento (formatos DD/MM/AAAA ou DD/MM/AA)
-    const dateRegex = /(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(\d{2,4})/g;
-    formatted = formatted.replace(dateRegex, 'Data de nascimento: $1/$2/$3');
-    
-    // Título de eleitor (formato XXXX XXXX XXXX)
-    const eleitoralRegex = /(\d{4}\s?\d{4}\s?\d{4})/g;
-    formatted = formatted.replace(eleitoralRegex, 'Título de eleitor: $1');
-    
-    // CNH (formato XXXXXXXXXXX)
-    const cnhRegex = /([0-9]{11})/g;
-    // Não queremos substituir CPFs, então isso pode ser impreciso
-    // Esta regex simplificada é apenas um exemplo
-    
-    return formatted;
 }
 
 // Inicializar UI e animações

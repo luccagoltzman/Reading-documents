@@ -98,7 +98,77 @@
                 <button id="copyBtn" title="Copiar texto"><i class="fas fa-copy"></i></button>
                 <button id="downloadBtn" title="Baixar como TXT"><i class="fas fa-download"></i></button>
             </div>
-            <textarea id="resultText" readonly></textarea>
+            
+            <!-- Novo layout estruturado para os resultados -->
+            <div class="result-cards">
+                <!-- Card de informações pessoais -->
+                <div class="result-card" id="personal-info-card">
+                    <div class="card-header">
+                        <i class="fas fa-user"></i>
+                        <h3>Informações Pessoais</h3>
+                    </div>
+                    <div class="card-content" id="personal-info">
+                        <div class="info-row" id="nome">
+                            <span class="info-label">Nome:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                        <div class="info-row" id="data-nascimento">
+                            <span class="info-label">Data de Nascimento:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card de documentos -->
+                <div class="result-card" id="document-info-card">
+                    <div class="card-header">
+                        <i class="fas fa-id-card"></i>
+                        <h3>Documentos</h3>
+                    </div>
+                    <div class="card-content" id="document-info">
+                        <div class="info-row" id="rg">
+                            <span class="info-label">RG:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                        <div class="info-row" id="cpf">
+                            <span class="info-label">CPF:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card de filiação -->
+                <div class="result-card" id="filiation-info-card">
+                    <div class="card-header">
+                        <i class="fas fa-users"></i>
+                        <h3>Filiação</h3>
+                    </div>
+                    <div class="card-content" id="filiation-info">
+                        <div class="info-row" id="nome-mae">
+                            <span class="info-label">Nome da Mãe:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                        <div class="info-row" id="nome-pai">
+                            <span class="info-label">Nome do Pai:</span>
+                            <span class="info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card para outros dados -->
+                <div class="result-card" id="other-info-card">
+                    <div class="card-header">
+                        <i class="fas fa-file-alt"></i>
+                        <h3>Outras Informações</h3>
+                    </div>
+                    <div class="card-content" id="other-info">
+                        <!-- Será preenchido com informações adicionais -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mantém o textarea, mas oculto, para facilitar a cópia/download de dados -->
+            <textarea id="resultText" style="display: none;" readonly></textarea>
         </div>
     </div>
 
