@@ -44,10 +44,9 @@
         
         <div class="camera-container fade-in-up-delay-2">
             <div id="video-container">
-                <video id="camera" autoplay></video>
-                <div class="capture-overlay">
-                    <div class="capture-frame"></div>
-                </div>
+                <video id="camera" autoplay playsinline></video>
+                <div class="camera-frame"></div>
+                <!-- <div class="camera-instructions">Posicione o documento dentro da moldura</div> -->
                 <div class="capture-controls">
                     <button id="startCameraBtn" class="btn primary-btn">
                         <i class="fas fa-video"></i> Iniciar Câmera
@@ -55,8 +54,8 @@
                     <button id="captureBtn" class="btn success-btn" disabled>
                         <i class="fas fa-camera"></i> Capturar
                     </button>
-                    <button id="switchCameraBtn" class="btn secondary-btn" disabled>
-                        <i class="fas fa-sync-alt"></i> Trocar Câmera
+                    <button id="closeCameraBtn" class="btn secondary-btn" disabled>
+                        <i class="fas fa-times"></i> Fechar Câmera
                     </button>
                 </div>
             </div>

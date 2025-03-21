@@ -116,20 +116,25 @@ startCameraButton.addEventListener('click', async () => {
 // Função para interromper a câmera
 function stopCamera() {
     if (stream) {
+        // Parar todas as trilhas de mídia do stream
         stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        
+        // Resetar a interface
         if (cameraElement) {
             cameraElement.srcObject = null;
         }
         
-        // Atualiza o estado dos botões
+        // Habilitar o botão de iniciar câmera e desabilitar os outros
+        const startCameraButton = document.getElementById('startCameraBtn');
+        const captureImageButton = document.getElementById('captureBtn');
+        const closeCameraButton = document.getElementById('closeCameraBtn');
+        
         if (startCameraButton) startCameraButton.disabled = false;
         if (captureImageButton) captureImageButton.disabled = true;
-        if (switchCameraButton) switchCameraButton.disabled = true;
+        if (closeCameraButton) closeCameraButton.disabled = true;
         
-        // Indica que a câmera foi interrompida
-        stream = null;
-        
-        showMessage('Câmera interrompida', 'info');
+        showMessage('Câmera fechada com sucesso', 'info');
     }
 }
 
@@ -1231,20 +1236,20 @@ function initializeCamera() {
     // Verificar se os elementos existem antes de tentar acessá-los
     const startCameraButton = document.getElementById('startCameraBtn');
     const captureImageButton = document.getElementById('captureBtn');
-    const switchCameraButton = document.getElementById('switchCameraBtn');
+    const closeCameraButton = document.getElementById('closeCameraBtn');
     const recaptureButton = document.getElementById('recaptureBtn');
     const processButton = document.getElementById('processBtn');
     
-    if (startCameraButton && captureImageButton && switchCameraButton) {
+    if (startCameraButton && captureImageButton && closeCameraButton) {
         startCameraButton.addEventListener('click', async function() {
             await startCamera();
             captureImageButton.disabled = false;
-            switchCameraButton.disabled = false;
+            closeCameraButton.disabled = false;
             this.disabled = true;
         });
         
         captureImageButton.addEventListener('click', captureImage);
-        switchCameraButton.addEventListener('click', switchCamera);
+        closeCameraButton.addEventListener('click', stopCamera);
     }
     
     if (recaptureButton) {
@@ -1386,22 +1391,33 @@ async function captureImage() {
             return;
         }
 
-        // Criar um canvas para capturar a imagem do vídeo
+        // Criar um canvas com as mesmas dimensões do vídeo visível
         const video = cameraElement;
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        
+        // Usar as dimensões reais do vídeo para evitar distorções e zoom indesejado
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+        
+        // Configurar o canvas com as mesmas proporções do vídeo
+        canvas.width = videoWidth;
+        canvas.height = videoHeight;
         
         const ctx = canvas.getContext('2d');
+        
+        // Desenhar a imagem exatamente como está sendo mostrada (sem zoom)
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         // Obter dados da imagem
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.95);
         
         // Exibir a imagem capturada
         if (capturedImageElement) {
             capturedImageElement.src = imageDataUrl;
             capturedImageElement.style.display = 'block';
+            capturedImageElement.style.width = '100%';
+            capturedImageElement.style.height = 'auto';
+            capturedImageElement.style.objectFit = 'contain';
         }
         
         // Alternar exibição dos containers
@@ -1409,7 +1425,7 @@ async function captureImage() {
         if (capturedContainer) capturedContainer.style.display = 'block';
         
         // Adicionar feedback sonoro de captura
-        const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
+        const captureSound = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA/+M4wAAAAAAAAAAAAEluZm8AAAAPAAAAAwAAAbAAeHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHiNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM///////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAYAAAAAAAAAAbBqxrpJAAAAAAD/+7DEAAAKmKl78MTgYVEVLvssNIIAIgAAAAMsAA5QA4ADlADgABABDpAAAAAAAAAA4A/P/zOADgAwgA5QBIAAAAAAAAAA4B8AJ4JkA+SAIBwLx5IBwHAAeAOA4eA+D4Hx9/egAIeEIHfC97736CgAcwf//9/////cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////////////77cMQCgAACUAAAAAAAAAJuAAAAAAAAiYR8X/E/8RonoRPCeE8CIVwIhXAiFcJ4TwIhPCfE/8QBf/////+gQU7ug9YO4DIJAJoCqgDwQA0AzAEIATgGYAMgBOAFoAWgAwAC0AWgBOANwAMgAAAAAAAAA//sMQAAAiZm3jGmHgB8zPvmGGPAAXgBaAMQAnAC8ALQAMAAWAJ///ygMNDDg8PDw4ODMzVVVqqqszMzMzDw8PDg4PDw8Pf/////////////6qqq1VVVVmZmZOCgoQEBAYODg4ODg4EBAQEBAQP/7EsTnAFuY0wDz1gAGyhvfaPZAAAAAQEDg4OCpUEAAgICBAQICAgaVqgYGBhUVNVVVVVVVgYGCAgQECAgICAgV//////////////////////////////////////////////////////////////////////////////////////////////////////////////sQxOMAgAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7EmRDgIAAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAE/wAAACAAACXgAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxP+AAAAEsAAAAAAAAJYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////////////////////wAA/+MYwAAAAP/7EsT6AAT0AcGphFAAiJU4UzQzghPP/////////////77/////4IgCBECAoiiKYyKG9zmXlEBQFAUZi4uZmZguLi4mImIiJhnExPP////////////44ICAoiIigbGxnIbGciIiJrGxs3G9vb2c5znOc53////////////////////////////////////////////////////////////////////+5/nOc5z//f///////////zOc5znOc5zn+c5znOc5znO7/////////////5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znOc5znA==');
         captureSound.play();
         
         // Verificar a qualidade da imagem
@@ -1543,8 +1559,8 @@ async function startCamera() {
         
         const constraints = {
             video: {
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
                 facingMode: currentFacingMode
             }
         };
@@ -1556,14 +1572,22 @@ async function startCamera() {
         if (cameraElement) {
             cameraElement.srcObject = stream;
             
-            // Habilitar botões relevantes
-            if (captureImageButton) captureImageButton.disabled = false;
-            if (switchCameraButton) switchCameraButton.disabled = false;
+            // Garantir que o vídeo se encaixe no contêiner sem distorção ou zoom
+            cameraElement.style.width = '100%';
+            cameraElement.style.height = 'auto';
+            cameraElement.style.transform = 'none';
+            cameraElement.style.objectFit = 'cover';
+            
+            // Aguardar o carregamento do vídeo para ajustar a interface
+            cameraElement.onloadedmetadata = () => {
+                // Habilitar botões relevantes
+                if (captureImageButton) captureImageButton.disabled = false;
+                if (switchCameraButton) switchCameraButton.disabled = false;
+            };
+            
+            // Mostrar mensagem de sucesso
+            showMessage('Câmera iniciada com sucesso!', 'success');
         }
-        
-        // Mostrar mensagem de sucesso
-        showMessage('Câmera iniciada com sucesso!', 'success');
-        
     } catch (error) {
         console.error('Erro ao iniciar a câmera:', error);
         showMessage('Não foi possível acessar a câmera. Verifique as permissões.', 'error');

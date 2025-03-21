@@ -216,37 +216,73 @@ p {
     font-size: 1rem;
 }
 
-/* Container da câmera */
+/* Estilos para o contêiner da câmera */
 .camera-container {
     position: relative;
     width: 100%;
-    max-width: 500px;
-    margin: 0 auto 30px;
+    max-width: 640px;
+    margin: 0 auto;
+    background-color: #edf2f7;
     border-radius: var(--border-radius-lg);
     overflow: hidden;
-    background-color: #000;
-    box-shadow: var(--shadow-lg);
-    transform: translateZ(0);
-    transition: var(--transition-bounce);
+    box-shadow: var(--shadow);
+    transition: var(--transition);
 }
 
-.camera-container:hover {
-    transform: translateY(-5px) scale(1.01);
-    box-shadow: var(--shadow-lg), 0 20px 40px rgba(67, 97, 238, 0.15);
+/* Moldura para o documento */
+.camera-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    height: 70%;
+    border: 2px dashed var(--primary-color);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 5;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.2);
 }
 
-#video-container {
-    position: relative;
-    overflow: hidden;
-    border-radius: var(--border-radius-lg);
+/* Overlay com instruções */
+.camera-instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 8px;
+    font-size: 0.9rem;
+    z-index: 5;
 }
 
+/* Estilos para o elemento de vídeo */
 #camera {
+    display: block;
     width: 100%;
     height: auto;
+    aspect-ratio: 4/3;
     background-color: #000;
+    object-fit: cover;
+}
+
+/* Estilos para a imagem capturada */
+#captured-image {
     display: block;
-    transition: transform 0.5s ease;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: var(--border-radius);
+}
+
+/* Contêiner de vídeo e resultado capturado */
+#video-container, #captured-container {
+    width: 100%;
+    background-color: #000;
+    border-radius: var(--border-radius);
+    overflow: hidden;
 }
 
 .capture-overlay {
